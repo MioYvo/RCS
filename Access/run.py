@@ -3,6 +3,9 @@ import logging
 import signal
 import sys
 from pathlib import Path
+
+from Access.clients import ioloop
+
 sys.path.insert(0, str(Path().absolute().parent))
 
 import tornado.escape
@@ -11,7 +14,6 @@ import tornado.web
 from tornado.options import options
 
 from Access.app import app
-from Access.settings import ioloop
 
 
 # noinspection PyUnusedLocal

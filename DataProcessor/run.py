@@ -11,7 +11,7 @@ import tornado.web
 from tornado.options import options
 
 from DataProcessor.app import app
-from DataProcessor.settings import ioloop
+from DataProcessor.clients import ioloop
 
 
 # noinspection PyUnusedLocal

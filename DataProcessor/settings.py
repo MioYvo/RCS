@@ -2,23 +2,20 @@
 # __author__ = 'Mio'
 from os import getenv
 
-import uvloop
 from aio_pika import ExchangeType
-from motor.motor_asyncio import AsyncIOMotorClient
 from yarl import URL
-from redis import Redis
 from pytz import timezone, tzinfo
-import tornado.ioloop
 
 from utils.gtz import local_timezone
-# ioloop
-uvloop.install()
-ioloop = tornado.ioloop.IOLoop.current()
 
 # project
-PROJECT_NAME = "DataProcessor"
+
+# project
+PROJECT_NAME = getenv("PROJECT_NAME", "DataProcessor")
+SCHEMA_TTL = int(getenv('SCHEMA_TTL', 600))
 AccessExchangeName = getenv('AccessExchangeName', 'Access')
 AccessExchangeType = ExchangeType(getenv('AccessExchangeType', 'direct'))
+EVENT_ROUTING_KEY = getenv('EVENT_ROUTING_KEY', 'event')
 PRE_FETCH_COUNT = int(getenv('PRE_FETCH_COUNT', 10))
 QUEUE_NAME = getenv('QUEUE_NAME', 'DataProcessor')
 RUN_PORT = int(getenv('RUN_PORT', '8081'))
@@ -30,6 +27,9 @@ MONGO_USER = getenv('MONGO_USER', 'RCSAccess')
 MONGO_PASS = getenv('MONGO_PASS')
 MONGO_MAXPoolSize = getenv('MONGO_maxPoolSize', 100)
 MONGO_DB = getenv('MONGO_DB', 'RCSAccess')
+MONGO_COLLECTION_EVENT = getenv('MONGO_COLLECTION_EVENT', 'event')
+MONGO_COLLECTION_RECORD = getenv('MONGO_COLLECTION_RECORD', 'record')
+
 if not MONGO_PASS:
     MONGO_PASS_FILE = getenv('MONGO_PASS_FILE')
     if MONGO_PASS_FILE:
@@ -38,8 +38,6 @@ if not MONGO_PASS:
 MONGO_URI = URL.build(scheme='mongodb', host=MONGO_HOST, port=MONGO_PORT, user=MONGO_USER, password=MONGO_PASS,
                       query=dict(MAXPoolSize=MONGO_MAXPoolSize))
 
-M_CLIENT = AsyncIOMotorClient(str(MONGO_URI), io_loop=ioloop.asyncio_loop)
-M_DB = getattr(M_CLIENT, MONGO_DB)
 
 # MariaDB
 MARIA_USER = getenv('MARIA_USER')
@@ -80,18 +78,10 @@ MARIA_PRE_PING = bool(int(getenv('MARIA_PRE_PING', 0)))
 # Redis
 REDIS_HOST = getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(getenv('REDIS_PORT', 6379))
+REDIS_DB = int(getenv('REDIS_DB', 0))
+REDIS_PASS = getenv('REDIS_PASS', '')
 assert REDIS_HOST
-redis = Redis(host=REDIS_HOST, port=REDIS_PORT)
-#       Redis Keys
-REDIS_JOB_LAST_ROUND_ID = 'gaffer::job_last_round::job_id::{job_id}'
-REDIS_JOB_LAST_ROUND_DT = 'gaffer::job_last_round_dt::job_id::{job_id}'
-REDIS_ROUND_WORKER_AMOUNT = 'gaffer::round_worker_amount::{round_id}'
-REDIS_WX_MP_TOKEN = 'gaffer::wx_mp_token'
-REDIS_WX_MP_TOKEN2 = 'gaffer::wx_mp_token2'
-REDIS_JOB_LAST_WORKER_DATA_TS = 'gaffer::job_last_worker_data_ts::job_id:{job_id}'
-REDIS_REALTIME_JOB = 'realtime::{job_id}::{round_id}'
-REDIS_REALTIME_RATE_CONTROL = 'realtime::rate_control::last_check::{token}'
-REDIS_REALTIME_RATE_CONTROL_LIMIT = 'realtime::rate_control::requests_per_second::{token}'
+
 
 # pika
 PIKA_USER = getenv('PIKA_USER', 'DataProcessor')
@@ -104,7 +94,7 @@ if not PIKA_PASS:
     if PIKA_PASS_FILE:
         with open(PIKA_PASS_FILE) as f:
             PIKA_PASS = f.read().strip()
-# assert PIKA_PASS
+assert PIKA_PASS
 
 PIKA_URL = URL.build(
     scheme='amqp',
@@ -116,7 +106,6 @@ PIKA_URL = URL.build(
 PIKA_MANAGEMENT_PORT = int(getenv('PIKA_MANAGEMENT_PORT', 15672))
 # pika_api = AdminAPI(url=f'http://{PIKA_HOST}:{PIKA_MANAGEMENT_PORT}', auth=(PIKA_USER, PIKA_PASS))
 # rabbit_api = Client(api_url=f'{PIKA_HOST}:{PIKA_MANAGEMENT_PORT}', user=PIKA_USER, passwd=PIKA_PASS)
-print(PIKA_URL)
 
 # HTTP client
 # AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient", defaults=dict(

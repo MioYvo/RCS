@@ -7,6 +7,7 @@ from json import JSONEncoder
 from uuid import UUID
 
 # from sqlalchemy.exc import SQLAlchemyError
+from bson import ObjectId
 from tornado.escape import native_str
 
 
@@ -29,6 +30,8 @@ class MyEncoder(JSONEncoder):
         # if isinstance(o, SQLAlchemyError):
         #     return str(o)
         if isinstance(o, UUID):
+            return str(o)
+        if isinstance(o, ObjectId):
             return str(o)
 
         return JSONEncoder.default(self, o)

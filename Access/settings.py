@@ -2,19 +2,18 @@
 # __author__ = 'Mio'
 from os import getenv
 
-import uvloop
 from aio_pika import ExchangeType
 from yarl import URL
-from redis import Redis
 from pytz import timezone, tzinfo
-import tornado.ioloop
 
 from utils.gtz import local_timezone
 
 # project
-PROJECT_NAME = "RCS Access"
+PROJECT_NAME = getenv("PROJECT_NAME", "RCSAccess")
+SCHEMA_TTL = int(getenv('SCHEMA_TTL', 600))
 AccessExchangeName = getenv('AccessExchangeName', 'Access')
 AccessExchangeType = ExchangeType(getenv('AccessExchangeType', 'direct'))
+EVENT_ROUTING_KEY = getenv('EVENT_ROUTING_KEY', 'event')
 
 # MongoDB
 MONGO_HOST = getenv('MONGO_HOST', 'localhost')
@@ -23,6 +22,9 @@ MONGO_USER = getenv('MONGO_USER', 'RCSAccess')
 MONGO_PASS = getenv('MONGO_PASS')
 MONGO_MAXPoolSize = getenv('MONGO_maxPoolSize', 100)
 MONGO_DB = getenv('MONGO_DB', 'RCSAccess')
+MONGO_COLLECTION_EVENT = getenv('MONGO_COLLECTION_EVENT', 'event')
+MONGO_COLLECTION_RECORD = getenv('MONGO_COLLECTION_RECORD', 'record')
+
 if not MONGO_PASS:
     MONGO_PASS_FILE = getenv('MONGO_PASS_FILE')
     if MONGO_PASS_FILE:
@@ -71,18 +73,10 @@ MARIA_PRE_PING = bool(int(getenv('MARIA_PRE_PING', 0)))
 # Redis
 REDIS_HOST = getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(getenv('REDIS_PORT', 6379))
+REDIS_DB = int(getenv('REDIS_DB', 0))
+REDIS_PASS = getenv('REDIS_PASS', None)
 assert REDIS_HOST
-redis = Redis(host=REDIS_HOST, port=REDIS_PORT)
-#       Redis Keys
-REDIS_JOB_LAST_ROUND_ID = 'gaffer::job_last_round::job_id::{job_id}'
-REDIS_JOB_LAST_ROUND_DT = 'gaffer::job_last_round_dt::job_id::{job_id}'
-REDIS_ROUND_WORKER_AMOUNT = 'gaffer::round_worker_amount::{round_id}'
-REDIS_WX_MP_TOKEN = 'gaffer::wx_mp_token'
-REDIS_WX_MP_TOKEN2 = 'gaffer::wx_mp_token2'
-REDIS_JOB_LAST_WORKER_DATA_TS = 'gaffer::job_last_worker_data_ts::job_id:{job_id}'
-REDIS_REALTIME_JOB = 'realtime::{job_id}::{round_id}'
-REDIS_REALTIME_RATE_CONTROL = 'realtime::rate_control::last_check::{token}'
-REDIS_REALTIME_RATE_CONTROL_LIMIT = 'realtime::rate_control::requests_per_second::{token}'
+
 
 # pika
 PIKA_USER = getenv('PIKA_USER', 'RCSAccess')
@@ -104,14 +98,11 @@ PIKA_URL = URL.build(
     user=PIKA_USER,
     password=PIKA_PASS
 )
+print(PIKA_URL)
 PIKA_MANAGEMENT_PORT = int(getenv('PIKA_MANAGEMENT_PORT', 15672))
 # pika_api = AdminAPI(url=f'http://{PIKA_HOST}:{PIKA_MANAGEMENT_PORT}', auth=(PIKA_USER, PIKA_PASS))
 # rabbit_api = Client(api_url=f'{PIKA_HOST}:{PIKA_MANAGEMENT_PORT}', user=PIKA_USER, passwd=PIKA_PASS)
-print(PIKA_URL)
 
-# ioloop
-uvloop.install()
-ioloop = tornado.ioloop.IOLoop.current()
 # HTTP client
 # AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient", defaults=dict(
 max_clients = int(getenv('http_clients_max_clients', 50))

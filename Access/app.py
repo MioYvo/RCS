@@ -8,7 +8,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from aio_pika import connect_robust, Channel, Connection
 from tornado.options import define, options, parse_command_line
 
-from Access.settings import PROJECT_NAME, PIKA_URL, ioloop, MONGO_URI, MONGO_DB, AccessExchangeType, AccessExchangeName
+from Access.clients import m_client, m_db, ioloop
+from Access.settings import PROJECT_NAME, PIKA_URL, MONGO_URI, AccessExchangeType, AccessExchangeName
 from Access.urls import urls
 
 define("port", default=8080, help=f"{PROJECT_NAME} run on the given port", type=int)
@@ -27,9 +28,8 @@ async def make_queues(amqp_connection: Connection):
 
 
 async def make_app():
-    m_client = AsyncIOMotorClient(str(MONGO_URI))
-    m_db = getattr(m_client, MONGO_DB)
-    print(await m_client.list_database_names())
+    if not m_client.list_database_names():
+        raise Exception(f"db connect failed or no db exists: {MONGO_URI}")
     amqp_connection = await connect_robust(
         url=PIKA_URL,
         client_properties={'client_properties': {'connection_name': 'RCSAccess'}})

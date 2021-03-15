@@ -5,11 +5,11 @@ import ujson
 from tornado.escape import native_str
 from tornado.web import RequestHandler, Finish
 
-from .encoder import MyEncoder
-from .http_code import (HTTP_200_OK, HTTP_204_NO_CONTENT, HTTP_422_UNPROCESSABLE_ENTITY,
-                        HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN,
-                        HTTP_500_INTERNAL_SERVER_ERROR, HTTP_401_UNAUTHORIZED)
-from .error_code import ERR_UNKNOWN, ERR_NO_CONTENT, ERR_ARG, ERR_MULTIPLE_OBJ_RETURNED
+from utils.encoder import MyEncoder
+from utils.http_code import (HTTP_200_OK, HTTP_204_NO_CONTENT, HTTP_422_UNPROCESSABLE_ENTITY,
+                             HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN,
+                             HTTP_500_INTERNAL_SERVER_ERROR, HTTP_401_UNAUTHORIZED)
+from utils.error_code import ERR_UNKNOWN, ERR_NO_CONTENT, ERR_ARG, ERR_MULTIPLE_OBJ_RETURNED
 
 
 # noinspection PyAbstractClass

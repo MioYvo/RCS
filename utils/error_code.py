@@ -20,13 +20,6 @@ ERR_MONEY = 4005
 # 查询单个结果, 返回了多个
 ERR_MULTIPLE_OBJ_RETURNED = 4007
 
-# 微信公众号API错误
-ERR_WX_MP_API = 4008
-
-# TryMonitor
-TRY_MONITOR_FEQ = 4009
-TRY_MONITOR_ASYNC = 4010
-
 # =========================
 # 专用
 # =========================

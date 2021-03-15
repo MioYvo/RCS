@@ -11,10 +11,11 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from aio_pika import connect_robust, Channel, Connection
 from tornado.options import define, options, parse_command_line
 
-from DataProcessor.settings import PROJECT_NAME, PIKA_URL, ioloop, AccessExchangeType, AccessExchangeName
+from DataProcessor.clients import m_client, m_db, ioloop
+from DataProcessor.settings import PROJECT_NAME, PIKA_URL, AccessExchangeType, AccessExchangeName, MONGO_URI
 from DataProcessor.urls import urls
 from DataProcessor.processer.access import AccessConsumer
-from DataProcessor.settings import M_DB, M_CLIENT, PRE_FETCH_COUNT, RUN_PORT
+from DataProcessor.settings import PRE_FETCH_COUNT, RUN_PORT
 
 from DataProcessor.settings import QUEUE_NAME
 from utils.mpika import make_consumer
@@ -35,10 +36,11 @@ async def make_queues(amqp_connection: Connection):
 
 
 async def make_app():
-    print(await M_CLIENT.list_database_names())
+    if not m_client.list_database_names():
+        raise Exception(f"db connect failed or no db exists: {MONGO_URI}")
     amqp_connection = await connect_robust(
         url=PIKA_URL,
-        client_properties={'client_properties': {'connection_name': f"PROJECT_NAME-{os.getpid()}"}})
+        client_properties={'client_properties': {'connection_name': f"{PROJECT_NAME}-{os.getpid()}"}})
     consumer = AccessConsumer(amqp_connection=amqp_connection)
     data_processor_consumers: List[ConsumerTag] = await make_consumer(
         amqp_connection=amqp_connection,
@@ -58,8 +60,8 @@ async def make_app():
     # )
 
     return MatildaApp(
-        m_db=M_DB,
-        m_client=M_CLIENT,
+        m_db=m_db,
+        m_client=m_client,
         amqp_connection=amqp_connection,
         consumers=data_processor_consumers,
     )

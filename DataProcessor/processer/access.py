@@ -2,11 +2,11 @@ import json
 import logging
 
 from aio_pika import IncomingMessage
-from motor.core import AgnosticCollection
 from pymongo.results import InsertOneResult
 from schema import Schema, SchemaError, And, Use
 
-from DataProcessor.settings import M_DB
+from DataProcessor.clients import record_collection
+from DataProcessor.settings import MONGO_COLLECTION_RECORD
 from utils.gtz import Dt
 
 
@@ -38,7 +38,7 @@ class AccessConsumer:
             _data = Schema({
                 "event_id": int,
                 "event_ts": And(int, Use(Dt.from_ts)),
-                "event_params": dict
+                "event": dict
             }).validate(data)
         except SchemaError as e:
             logging.error(e)
@@ -54,10 +54,8 @@ class AccessConsumer:
         if not data:
             return await self.ack(message)
 
-        collection_name = "event"
-        collection: AgnosticCollection = getattr(M_DB, collection_name)
-        rst: InsertOneResult = await collection.insert_one(data)
-        logging.info(f"InsertSuccess collection:{collection_name} doc:{rst.inserted_id}")
-        doc = await collection.find_one(rst.inserted_id)
+        rst: InsertOneResult = await record_collection.insert_one(data)
+        logging.info(f"InsertSuccess collection:{MONGO_COLLECTION_RECORD} doc:{rst.inserted_id}")
+        doc = await record_collection.find_one(rst.inserted_id)
         logging.info(doc)
         await self.ack(message)

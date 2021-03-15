@@ -149,3 +149,4 @@ cython_debug/
 *.iml
 out
 gen
+/doc/
