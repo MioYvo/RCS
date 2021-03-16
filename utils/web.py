@@ -24,7 +24,13 @@ class BaseRequestHandler(RequestHandler):
         # self.set_header("Access-Control-Allow-Origin", "*")
         # self.set_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE")
         # self.set_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
-        pass
+        # self.set_status(204)
+        raise Finish()
+
+    def set_default_headers(self):
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Headers", "x-requested-with")
+        self.set_header('Access-Control-Allow-Methods', 'POST,GET,OPTIONS,DELETE,PUT')
 
     def write_response(self, content=None, error_code=0, message="", status_code=HTTP_200_OK, reason=None, meta=None):
         if meta is None:

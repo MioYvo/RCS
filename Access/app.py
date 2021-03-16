@@ -8,8 +8,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from aio_pika import connect_robust, Channel, Connection
 from tornado.options import define, options, parse_command_line
 
-from Access.clients import m_client, m_db, ioloop
-from Access.settings import PROJECT_NAME, PIKA_URL, MONGO_URI, AccessExchangeType, AccessExchangeName
+from config.clients import m_client, m_db, ioloop
+from config import PROJECT_NAME, PIKA_URL, MONGO_URI, AccessExchangeType, AccessExchangeName
 from Access.urls import urls
 
 define("port", default=8080, help=f"{PROJECT_NAME} run on the given port", type=int)

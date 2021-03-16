@@ -11,14 +11,13 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from aio_pika import connect_robust, Channel, Connection
 from tornado.options import define, options, parse_command_line
 
-from DataProcessor.clients import m_client, m_db, ioloop
-from DataProcessor.settings import PROJECT_NAME, PIKA_URL, AccessExchangeType, AccessExchangeName, MONGO_URI
+from config.clients import m_client, m_db, ioloop
 from DataProcessor.urls import urls
 from DataProcessor.processer.access import AccessConsumer
-from DataProcessor.settings import PRE_FETCH_COUNT, RUN_PORT
-
-from DataProcessor.settings import QUEUE_NAME
 from utils.mpika import make_consumer
+from config import (
+    PROJECT_NAME, PIKA_URL, AccessExchangeType, AccessExchangeName,
+    MONGO_URI, PRE_FETCH_COUNT, RUN_PORT, QUEUE_NAME)
 
 define("port", default=RUN_PORT, help=f"{PROJECT_NAME} run on the given port", type=int)
 define("debug", default=False, help="run in debug mode", type=bool)

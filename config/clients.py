@@ -2,23 +2,30 @@ import tornado.ioloop
 import uvloop
 from aiocache import Cache
 from aiocache.plugins import HitMissRatioPlugin
-from aiocache.serializers import StringSerializer, JsonSerializer
+from aiocache.serializers import StringSerializer, JsonSerializer, PickleSerializer
+# noinspection PyProtectedMember
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorCollection
 from redis import Redis
 
-from DataProcessor.settings import MONGO_URI, REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASS, PROJECT_NAME, MONGO_DB, \
+from config import MONGO_URI, REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASS, PROJECT_NAME, MONGO_DB, \
     MONGO_COLLECTION_EVENT, MONGO_COLLECTION_RECORD
+from utils.logger import Logger
 
-m_client: AsyncIOMotorClient = AsyncIOMotorClient(str(MONGO_URI))
+uvloop.install()
+ioloop = tornado.ioloop.IOLoop.current()
+# noinspection PyUnresolvedReferences
+io_loop = ioloop.asyncio_loop
+
+m_client: AsyncIOMotorClient = AsyncIOMotorClient(str(MONGO_URI), io_loop=io_loop)
 m_db: AsyncIOMotorDatabase = getattr(m_client, MONGO_DB)
 event_collection: AsyncIOMotorCollection = getattr(m_db, MONGO_COLLECTION_EVENT)
 record_collection: AsyncIOMotorCollection = getattr(m_db, MONGO_COLLECTION_RECORD)
 
-uvloop.install()
-ioloop = tornado.ioloop.IOLoop.current()
+logger = Logger(name="RCS")
 
 
 # ------------- redis BEGIN -------------
+# noinspection PyUnusedLocal
 def key_builder_only_kwargs(func, *ignore, **kwargs):
     # python 3.8 support kwargs only by `def func(a, *, kw_only)`
     # but not support `def func(a, *, **kw_only)`
@@ -45,3 +52,8 @@ redis_cache_only_kwargs = dict(
 )
 string_serializer = StringSerializer()
 json_serializer = JsonSerializer()
+pickle_serializer = PickleSerializer()
+cache = Cache(
+    cache_class=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
+    namespace=PROJECT_NAME, db=REDIS_DB, password=REDIS_PASS, serializer=pickle_serializer
+)

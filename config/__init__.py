@@ -8,12 +8,17 @@ from pytz import timezone, tzinfo
 
 from utils.gtz import local_timezone
 
-# project
-PROJECT_NAME = getenv("PROJECT_NAME", "RCSAccess")
+# Project
+PROJECT_NAME = getenv("PROJECT_NAME", "DataProcessor")
 SCHEMA_TTL = int(getenv('SCHEMA_TTL', 600))
 AccessExchangeName = getenv('AccessExchangeName', 'Access')
 AccessExchangeType = ExchangeType(getenv('AccessExchangeType', 'direct'))
 EVENT_ROUTING_KEY = getenv('EVENT_ROUTING_KEY', 'event')
+RUN_PORT = int(getenv('RUN_PORT', '8081'))
+
+# DataProcessor
+PRE_FETCH_COUNT = int(getenv('PRE_FETCH_COUNT', 10))
+QUEUE_NAME = getenv('QUEUE_NAME', 'DataProcessor')
 
 # MongoDB
 MONGO_HOST = getenv('MONGO_HOST', 'localhost')

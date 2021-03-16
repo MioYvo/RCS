@@ -4,15 +4,14 @@ import signal
 import sys
 from pathlib import Path
 
-from Access.clients import ioloop
-
-sys.path.insert(0, str(Path().absolute().parent))
-
 import tornado.escape
 import tornado.ioloop
 import tornado.web
 from tornado.options import options
 
+sys.path.insert(0, str(Path().absolute().parent))
+
+from config.clients import ioloop
 from Access.app import app
 
 

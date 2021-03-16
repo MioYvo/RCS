@@ -1,0 +1,16 @@
+version: "3.7"
+
+services:
+  redis:
+    image: redis:alpine
+    restart: always
+#    labels:
+#      - "com.centurylinklabs.watchtower.enable=false"
+    volumes:
+      - /data/RCS/redis:/data  # RDB file
+    ports:
+      - 6379:6379
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "10"
