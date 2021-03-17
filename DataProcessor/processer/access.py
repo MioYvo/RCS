@@ -57,6 +57,8 @@ class AccessConsumer:
         if not data:
             return await self.ack(message)
 
+        data['create_at'] = Dt.utc_now()
+
         rst: InsertOneResult = await record_collection.insert_one(data)
         self.logger.info("InsertSuccess", collection=MONGO_COLLECTION_RECORD, doc=rst.inserted_id)
         doc = await record_collection.find_one(rst.inserted_id)

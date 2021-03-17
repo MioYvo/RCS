@@ -1,66 +1,39 @@
-from typing import Optional, List, Union, Tuple
+from typing import Optional, Union, Tuple
 
 import jsonschema
-from aiocache import cached
 from bson import ObjectId
-from pymongo.results import UpdateResult, InsertOneResult, DeleteResult
+from motor.core import AgnosticCollection
+from pymongo.results import UpdateResult, InsertOneResult
+from pytz import utc
 
-from config.clients import redis_cache_only_kwargs, event_collection, key_builder_only_kwargs, cache, \
-    pickle_serializer, logger
-from config import SCHEMA_TTL
+from config.clients import event_collection
+from model import BaseCollection
+from utils.logger import Logger
 from utils.mbson import convert_son_to_json_schema
 from utils.gtz import Dt
 
 
-class Event:
+class Event(BaseCollection):
+    collection: AgnosticCollection = event_collection
+    logger = Logger('EventColl')
+
     def __init__(self, _id: Union[str, ObjectId], name: str = ''):
-        self._id: ObjectId = ObjectId(_id)
+        super().__init__(_id)
         self.name: str = name
         self.schema: Optional[dict] = None
-        self.create_at = None
-        self.update_at = None
-
-        self.exists = False
-
-    @property
-    def id(self):
-        return self._id
-
-    @id.setter
-    def id(self, value):
-        self._id = ObjectId(value)
 
     async def load(self):
-        event = await event_collection.find_one({"_id": ObjectId(self._id)})
-        if not event:
-            self.exists = False
-            return
-        else:
-            self.exists = True
-
-        for attr in event:
-            if hasattr(self, attr):
-                setattr(self, attr, event[attr])
+        await super(Event, self).load()
         if self.schema:
             self.schema = convert_son_to_json_schema(self.schema)
 
     @classmethod
     async def create(cls, name: str, schema: dict) -> "Event":
-        insert_rst: InsertOneResult = await event_collection.insert_one({
+        insert_rst: InsertOneResult = await cls.collection.insert_one({
             "schema": schema, "name": name,
-            "update_at": Dt.now_ts(), "create_at": Dt.now_ts()
+            "update_at": Dt.utc_now(), "create_at": Dt.utc_now()
         })
-        return await cls.get_event(_id=str(insert_rst.inserted_id))
-
-    async def save(self) -> bool:
-        try:
-            rst = await self._save()
-        except Exception as e:
-            logger.exceptions(e)
-            return False
-        else:
-
-            return rst
+        return await cls.get_by_id(_id=str(insert_rst.inserted_id))
 
     async def _save(self) -> bool:
         if not self.schema:
@@ -86,36 +59,6 @@ class Event:
         await self.rebuild_cache()
         return rst
 
-    async def refresh_cache(self) -> None:
-        await cache.delete(key=self.cache_key)
-
-    async def rebuild_cache(self) -> None:
-        await cache.set(key=self.cache_key, value=self, ttl=SCHEMA_TTL)
-
-    @property
-    def cache_key(self) -> str:
-        return key_builder_only_kwargs(func=self.get_event, _id=self._id)
-
-    @classmethod
-    @cached(ttl=SCHEMA_TTL, serializer=pickle_serializer, **redis_cache_only_kwargs)
-    async def get_event(cls, _id: Union[str, ObjectId]) -> "Event":
-        logger.info(f'real get event {_id}')
-        event = cls(_id=_id)
-        await event.load()
-        return event
-
-    @classmethod
-    async def del_events(cls, _ids: List[str]) -> DeleteResult:
-        delete_result: DeleteResult = await event_collection.delete_many({"_id": {"$in": _ids}})
-        for _id in _ids:
-            await cls(_id).refresh_cache()
-        return delete_result
-
-    async def delete(self) -> bool:
-        delete_result: DeleteResult = await event_collection.delete_one({"_id": self._id})
-        await self.refresh_cache()
-        return delete_result.deleted_count == 1
-
     def validate(self, json: dict) -> Tuple[bool, str]:
         try:
             jsonschema.validate(schema=convert_son_to_json_schema(self.schema), instance=json)
@@ -129,6 +72,6 @@ class Event:
             "id": str(self._id),
             "name": self.name,
             "schema": convert_son_to_json_schema(self.schema),
-            "update_at": Dt.from_ts(self.update_at),
-            "create_at": Dt.from_ts(self.create_at),
+            "update_at": self.update_at,
+            "create_at": self.create_at,
         }

@@ -3,8 +3,8 @@ import uvloop
 from aiocache import Cache
 from aiocache.plugins import HitMissRatioPlugin
 from aiocache.serializers import StringSerializer, JsonSerializer, PickleSerializer
-# noinspection PyProtectedMember
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase, AsyncIOMotorCollection
+from motor.core import AgnosticCollection, AgnosticDatabase
+from motor.motor_asyncio import AsyncIOMotorClient
 from redis import Redis
 
 from config import MONGO_URI, REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASS, PROJECT_NAME, MONGO_DB, \
@@ -17,9 +17,9 @@ ioloop = tornado.ioloop.IOLoop.current()
 io_loop = ioloop.asyncio_loop
 
 m_client: AsyncIOMotorClient = AsyncIOMotorClient(str(MONGO_URI), io_loop=io_loop)
-m_db: AsyncIOMotorDatabase = getattr(m_client, MONGO_DB)
-event_collection: AsyncIOMotorCollection = getattr(m_db, MONGO_COLLECTION_EVENT)
-record_collection: AsyncIOMotorCollection = getattr(m_db, MONGO_COLLECTION_RECORD)
+m_db: AgnosticDatabase = getattr(m_client, MONGO_DB)
+event_collection: AgnosticCollection = getattr(m_db, MONGO_COLLECTION_EVENT)
+record_collection: AgnosticCollection = getattr(m_db, MONGO_COLLECTION_RECORD)
 
 logger = Logger(name="RCS")
 

@@ -68,7 +68,7 @@ class EventHandler(EventHandlerBase):
 
         pagination = await paginate(collection=event_collection, query=__query, page=_query['page'],
                                     per_page=_query['per_page'], order_by=_query['sort'], desc=_query['desc'])
-        rst = [(await Event.get_event(_id=doc['_id'])).to_dict() async for doc in pagination.items]
+        rst = [(await Event.get_by_id(_id=doc['_id'])).to_dict() async for doc in pagination.items]
         pagination.count = len(rst)
         self.write_response(rst, meta={"pagination": pagination.php_meta_pagination})
 
@@ -79,6 +79,7 @@ class EventHandler(EventHandlerBase):
                 SchemaOptional("per_page", default=20): Use(int),
                 SchemaOptional("sort", default="update_at"): str,
                 SchemaOptional("desc", default=True): And(Use(int), Use(bool)),
+
                 SchemaOptional("name", default=""): str,
             }, ignore_extra_keys=True).validate(self.get_query_args())
         except SchemaError as e:
@@ -157,7 +158,7 @@ class EventIdHandler(EventHandlerBase):
         @apiSuccess {String} content.create_at 创建时间, UTC
         """
         event_id: ObjectId = self.schema_event_id(event_id)
-        event = await Event.get_event(_id=event_id)
+        event = await Event.get_by_id(_id=event_id)
         if not event.exists:
             raise self.write_not_found_entity_response()
         # TODO list records
@@ -182,7 +183,7 @@ class EventIdHandler(EventHandlerBase):
         @apiSuccess {String} Content.create_at 创建时间, UTC
         """
         event_id: ObjectId = self.schema_event_id(event_id)
-        event = await Event.get_event(_id=event_id)
+        event = await Event.get_by_id(_id=event_id)
         if not event.exists:
             raise self.write_not_found_entity_response()
 
@@ -209,7 +210,7 @@ class EventIdHandler(EventHandlerBase):
         @apiSuccess {String} Content.create_at 创建时间, UTC
         """
         event_id: ObjectId = self.schema_event_id(event_id)
-        event = await Event.get_event(_id=event_id)
+        event = await Event.get_by_id(_id=event_id)
         if not event.exists:
             raise self.write_not_found_entity_response()
 
