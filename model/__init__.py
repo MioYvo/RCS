@@ -59,12 +59,13 @@ class BaseCollection:
         raise NotImplementedError
 
     async def refresh_cache(self) -> None:
+        self.logger.info('delete_cache', key=self.cache_key)
         await cache.delete(key=self.cache_key)
 
     async def rebuild_cache(self) -> None:
-        self.logger.info('delete cache', key=self.cache_key)
-        await cache.delete(key=self.cache_key)
-        # await cache.set(key=self.cache_key, value=self, ttl=SCHEMA_TTL)
+        self.logger.info('rebuild_cache', key=self.cache_key)
+        # await cache.delete(key=self.cache_key)
+        await cache.set(key=self.cache_key, value=self, ttl=SCHEMA_TTL)
 
     @property
     def cache_key(self) -> str:
@@ -74,7 +75,7 @@ class BaseCollection:
     @cached(ttl=SCHEMA_TTL, serializer=pickle_serializer, **redis_cache_only_kwargs)
     async def get_by_id(cls, _id: Union[str, ObjectId]):
         event = cls(_id=_id)
-        logger.info(f'real get {event.collection} {_id}')
+        logger.info('real_get', collection=event.collection.name, id=_id)
         await event.load()
         return event
 

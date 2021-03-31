@@ -27,8 +27,8 @@ class Record(BaseCollection):
     @classmethod
     async def create(cls, event_id: Union[str, ObjectId], event: dict, event_ts: Union[int, float]):
         insert_rst: InsertOneResult = await cls.collection.insert_one({
-            "event_id": ObjectId(event_id), "event": event,
-            "event_ts": Dt.from_ts(event_ts)
+            "event_id": ObjectId(event_id), "event": event, "event_ts": Dt.from_ts(event_ts),
+            "update_at": Dt.utc_now(), "create_at": Dt.utc_now()
         })
         return await cls.get_by_id(_id=str(insert_rst.inserted_id))
 
