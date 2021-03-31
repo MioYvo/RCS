@@ -16,6 +16,7 @@ from utils.logger import Logger
 
 uvloop.install()
 ioloop = tornado.ioloop.IOLoop.current()
+# noinspection PyUnresolvedReferences
 io_loop: Union[AbstractEventLoop, BaseEventLoop] = ioloop.asyncio_loop
 
 m_client: AsyncIOMotorClient = AsyncIOMotorClient(str(MONGO_URI), io_loop=io_loop)

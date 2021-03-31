@@ -71,7 +71,8 @@ MARIA_TZ: tzinfo = timezone(getenv('MARIA_TZ', str(local_timezone)))
 USE_UTC_OUT_FORMAT = bool(int(getenv('USE_UTC_OUT_FORMAT', 1)))
 # mysql+pymysql://root:root@localhost/monitor
 MARIA_URI = f'mysql+pymysql://{MARIA_USER}:{MARIA_PASS}@{MARIA_HOST}:{MARIA_PORT}/{MARIA_DB}'
-MARIA_URL = URL.build(scheme='mysql+pymysql', user=MARIA_USER, password=MARIA_PASS, host=MARIA_HOST, port=MARIA_PORT, path=f'/{MARIA_DB}')
+MARIA_URL = URL.build(scheme='mysql+pymysql', user=MARIA_USER, password=MARIA_PASS,
+                      host=MARIA_HOST, port=MARIA_PORT, path=f'/{MARIA_DB}')
 MARIA_PRE_PING = bool(int(getenv('MARIA_PRE_PING', 0)))
 
 # # apscheduler

@@ -141,7 +141,8 @@ class BaseRequestHandler(RequestHandler):
         :param message:
         :return:
         """
-        self.write_error_response(content=content, error_code=ERR_UNAUTHORIZED, message=message, status_code=HTTP_401_UNAUTHORIZED)
+        self.write_error_response(content=content, error_code=ERR_UNAUTHORIZED, message=message,
+                                  status_code=HTTP_401_UNAUTHORIZED)
 
     def write_rate_limit_response(self, content=None, message="Rate limit"):
         """

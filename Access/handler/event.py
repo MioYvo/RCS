@@ -6,7 +6,6 @@ from schema import Schema, SchemaError, Optional as SchemaOptional, Use, And
 
 from config.clients import event_collection
 from model.event import Event
-from model.mapping import COLL_MAPPING
 from model.rule import Rule
 from utils.event_schema import EventSchema
 from utils.mongo_paginate import paginate
@@ -164,7 +163,6 @@ class EventIdHandler(EventHandlerBase):
         event = await Event.get_by_id(_id=event_id)
         if not event.exists:
             raise self.write_not_found_entity_response()
-        # TODO list records
         self.write_response(content=event.to_dict())
 
     async def put(self, event_id: str):

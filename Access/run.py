@@ -11,7 +11,7 @@ from tornado.options import options
 
 sys.path.insert(0, str(Path().absolute().parent))
 
-from config.clients import ioloop
+from config.clients import ioloop, io_loop
 from Access.app import app
 
 

@@ -226,7 +226,7 @@ class RuleParser(object):
         get_data, format rule
         "DATA::event::456::amount::latest"
 
-        :param arg: str "DATA::collection::coll_id::metric::fetch_strategy" startswith "DATA::"
+        :param arg: str "DATA::collection::coll_id::fetch_strategy::metric" startswith "DATA::"
         :return:
         """
 
