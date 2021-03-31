@@ -14,6 +14,7 @@ SCHEMA_TTL = int(getenv('SCHEMA_TTL', 600))
 AccessExchangeName = getenv('AccessExchangeName', 'Access')
 AccessExchangeType = ExchangeType(getenv('AccessExchangeType', 'direct'))
 EVENT_ROUTING_KEY = getenv('EVENT_ROUTING_KEY', 'event')
+RULE_EXE_ROUTING_KEY = getenv('EVENT_ROUTING_KEY', 'RuleExecutor')
 RUN_PORT = int(getenv('RUN_PORT', '8081'))
 
 # DataProcessor
@@ -79,7 +80,7 @@ MARIA_PRE_PING = bool(int(getenv('MARIA_PRE_PING', 0)))
 # Redis
 REDIS_HOST = getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(getenv('REDIS_PORT', 6379))
-REDIS_DB = int(getenv('REDIS_DB', 0))
+REDIS_DB = int(getenv('REDIS_DB', 1))
 REDIS_PASS = getenv('REDIS_PASS', None)
 assert REDIS_HOST
 

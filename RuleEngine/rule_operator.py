@@ -3,10 +3,11 @@
 # created: 3/30/21 6:04 PM
 import json
 import logging
+from collections import defaultdict
 from enum import Enum
-from typing import Union, Optional
+from typing import Union, Optional, Dict, List
 
-from bson import Decimal128
+from bson import Decimal128, ObjectId
 from paco import map as paco_map
 
 from model.event import Event
@@ -153,10 +154,28 @@ class RuleParser(object):
 
     @staticmethod
     def validate(rule):
+        # TODO more validate info, args' type to compare with must be same type
         if not isinstance(rule, list):
             raise RuleEvaluationError('Rule must be a list, got {}'.format(type(rule)))
         if len(rule) < 2:
             raise RuleEvaluationError('Must have at least one argument.')
+
+    @classmethod
+    def coll_info(cls, rule: list) -> Dict[str, List[ObjectId]]:
+        # TODO prevent cycle trigger executor
+        def __coll_info(rl, _coll_mapping: Dict[str, set]):
+            for rll in rl:
+                if isinstance(rll, list):
+                    __coll_info(rll, _coll_mapping)
+                elif isinstance(rll, str) and rll.startswith(cls.DATA_PREFIX):
+                    data_list = rll[len(cls.DATA_PREFIX):].split("::")
+                    _coll_mapping[data_list[0]].add(ObjectId(data_list[1]))
+        coll_mapping = defaultdict(set)
+        __coll_info(rule, coll_mapping)
+        coll_mapping = dict(coll_mapping)
+        for k, v in coll_mapping.items():
+            coll_mapping[k] = list(v)
+        return coll_mapping
 
     def _evaluate(self, rule):
         """
@@ -169,7 +188,7 @@ class RuleParser(object):
                 return arg
 
         r = list(map(_recurse_eval, rule))
-        print(f'rlist: {r}')
+        # print(f'rlist: {r}')
         r[0] = Functions.ALIAS.get(r[0]) or r[0]
         func = getattr(Functions, r[0])
         return func(*r[1:])
@@ -191,7 +210,7 @@ class RuleParser(object):
 
     @classmethod
     async def render_rule(cls, rule):
-        print(rule)
+        # print(rule)
         for i, rl in enumerate(rule):
             if isinstance(rl, list):
                 rule[i] = await cls.render_rule(rl)
@@ -245,7 +264,7 @@ class RuleParser(object):
                 return arg
 
         r = list(paco_map(_recurse_eval, rule, loop=io_loop))
-        print(f'rlist: {r}')
+        # print(f'rlist: {r}')
         r[0] = Functions.ALIAS.get(r[0]) or r[0]
         func = getattr(Functions, r[0])
         return func(*r[1:])
@@ -277,11 +296,11 @@ if __name__ == '__main__':
     ru = ['or',
           ['>', 1, 2],
           ['and',
-           ['in_', 1, 1, 2, 3],
+           ['in_', 1, 1, "DATA::event::60637cd71b57484ca719135e::latest_record::user_id", 3],
            ['>', "DATA::event::60637cd71b57484ca719135e::latest_record::amount", ['int', '2']]]
           ]
-    rendered_rule = io_loop.run_until_complete(RuleParser.render_rule(ru))
-    print(rendered_rule)
-    print(RuleParser.evaluate_rule(rendered_rule))
+    # rendered_rule = io_loop.run_until_complete(RuleParser.render_rule(ru))
+    # print(rendered_rule)
+    # print(RuleParser.evaluate_rule(rendered_rule))
 
-
+    print('coll_info', RuleParser.coll_info(ru))

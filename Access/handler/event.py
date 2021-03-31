@@ -6,22 +6,29 @@ from schema import Schema, SchemaError, Optional as SchemaOptional, Use, And
 
 from config.clients import event_collection
 from model.event import Event
+from model.mapping import COLL_MAPPING
+from model.rule import Rule
 from utils.event_schema import EventSchema
 from utils.mongo_paginate import paginate
 from utils.web import BaseRequestHandler
 
 
 class EventHandlerBase(BaseRequestHandler):
-    def post_schema(self):
+    async def post_schema(self):
         try:
             origin_data = self.get_body_args()
             _data = Schema({
                 "name": And(str, lambda x: 0 < len(x) < 32),
                 "schema": And(dict, Use(EventSchema.parse)),
+                SchemaOptional("rules", default=[]): And(Use(set), {Use(ObjectId)}, Use(list)),
             }, ignore_extra_keys=True).validate(origin_data)
         except SchemaError as e:
             raise self.write_parse_args_failed_response(content=str(e))
         else:
+            for rule_id in _data['rules']:
+                docu = await Rule.get_by_id(rule_id)
+                if not docu.exists:
+                    raise self.write_parse_args_failed_response(content=f'Rule({rule_id}) not found')
             return _data, origin_data['schema']
 
 
@@ -95,9 +102,9 @@ class EventHandler(EventHandlerBase):
         @apiSuccess {String} Content.update_at 修改时间, UTC
         @apiSuccess {String} Content.create_at 创建时间, UTC
         """
-        _query, origin_schema = self.post_schema()
+        _query, origin_schema = await self.post_schema()
         try:
-            event = await Event.create(name=_query['name'], schema=origin_schema)
+            event = await Event.create(name=_query['name'], schema=origin_schema, rules=_query['rules'])
         except DuplicateKeyError as e:
             raise self.write_duplicate_entry(content=str(e))
         except PyMongoError as e:

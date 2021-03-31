@@ -1,4 +1,4 @@
-from typing import Optional, Union, Tuple
+from typing import Optional, Union, Tuple, Dict, List
 
 from bson import ObjectId
 from motor.core import AgnosticCollection
@@ -16,10 +16,14 @@ class Event(BaseCollection):
     collection: AgnosticCollection = event_collection
     logger = Logger('EventColl')
 
-    def __init__(self, _id: Union[str, ObjectId], name: str = ''):
+    def __init__(self, _id: Union[str, ObjectId], name: str = '', rules: List[ObjectId] = None):
         super().__init__(_id)
+        if rules is None:
+            rules = []
         self.name: str = name
         self.schema: Optional[dict] = None
+
+        self.rules = rules
 
     async def load(self):
         await super(Event, self).load()
@@ -27,9 +31,11 @@ class Event(BaseCollection):
             self.schema = convert_son_to_json_schema(self.schema)
 
     @classmethod
-    async def create(cls, name: str, schema: dict) -> "Event":
+    async def create(cls, name: str, schema: dict, rules: List[Union[str, ObjectId]] = None) -> "Event":
+        if rules is None:
+            rules = []
         insert_rst: InsertOneResult = await cls.collection.insert_one({
-            "schema": schema, "name": name,
+            "schema": schema, "name": name, "rules": [ObjectId(rule) for rule in rules],
             "update_at": Dt.utc_now(), "create_at": Dt.utc_now()
         })
         return await cls.get_by_id(_id=str(insert_rst.inserted_id))
@@ -40,7 +46,7 @@ class Event(BaseCollection):
         if self._id:
             update_rst: UpdateResult = await self.collection.update_one(
                 {"_id": self._id},
-                {"$set": {"schema": self.schema, "name": self.name,
+                {"$set": {"schema": self.schema, "name": self.name, "rules": self.rules,
                           "update_at": Dt.now_ts()}},
                 # projection={"_id": False},
                 upsert=False
@@ -48,7 +54,7 @@ class Event(BaseCollection):
             rst = True if update_rst.modified_count else False
         else:
             insert_rst: InsertOneResult = await self.collection.insert_one({
-                "schema": self.schema, "name": self.name,
+                "schema": self.schema, "name": self.name, "rules": self.rules,
                 "update_at": Dt.now_ts(), "create_at": Dt.now_ts()
             })
             rst = True if insert_rst.inserted_id else False
@@ -81,6 +87,7 @@ class Event(BaseCollection):
             "id": str(self._id),
             "name": self.name,
             "schema": self.schema,
+            "rules": self.rules,
             "update_at": self.update_at,
             "create_at": self.create_at,
         }

@@ -8,13 +8,14 @@ from aio_pika import IncomingMessage
 from schema import Schema, And, SchemaError
 
 from RuleEngine.rule_operator import RuleParser
+from config import RULE_EXE_ROUTING_KEY
 from utils.amqp_consumer import AmqpConsumer
 from utils.logger import Logger
 
 
 class RuleExecutorConsumer(AmqpConsumer):
     logger = Logger(name='RuleExecutorConsumer')
-    routing_key = "RuleExecutor"
+    routing_key = RULE_EXE_ROUTING_KEY
 
     async def consume(self, message: IncomingMessage):
         """
@@ -33,7 +34,7 @@ class RuleExecutorConsumer(AmqpConsumer):
                     {
                         "id": "1",
                         "name": "",
-                        "schema": ['or',
+                        "rule": ['or',
                           ['>', 1, 2],
                           ['and',
                            ['in_', 1, 1, 2, 3],
@@ -52,7 +53,7 @@ class RuleExecutorConsumer(AmqpConsumer):
         self.logger.info(trigger_by=data['trigger_by'])
         for rule in data["rules"]:
             try:
-                _rule_schema = await RuleParser.render_rule(rule['schema'])
+                _rule_schema = await RuleParser.render_rule(rule['rule'])
             except Exception as e:
                 self.logger.exceptions(e, where='render_rule')
             else:

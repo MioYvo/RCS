@@ -51,7 +51,6 @@ class BaseCollection:
             logger.exceptions(e)
             return False
         else:
-
             return rst
 
     async def _save(self) -> bool:
@@ -63,11 +62,13 @@ class BaseCollection:
         await cache.delete(key=self.cache_key)
 
     async def rebuild_cache(self) -> None:
-        await cache.set(key=self.cache_key, value=self, ttl=SCHEMA_TTL)
+        self.logger.info('delete cache', key=self.cache_key)
+        await cache.delete(key=self.cache_key)
+        # await cache.set(key=self.cache_key, value=self, ttl=SCHEMA_TTL)
 
     @property
     def cache_key(self) -> str:
-        return key_builder_only_kwargs(func=self.get_by_id, _id=self._id)
+        return key_builder_only_kwargs(self.get_by_id, self, _id=self._id)
 
     @classmethod
     @cached(ttl=SCHEMA_TTL, serializer=pickle_serializer, **redis_cache_only_kwargs)

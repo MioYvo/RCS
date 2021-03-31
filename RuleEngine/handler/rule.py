@@ -6,6 +6,7 @@ import json
 from pymongo.errors import DuplicateKeyError, PyMongoError
 from schema import Schema, SchemaError, Or, Use, And, Optional as SchemaOptional
 
+from model.mapping import COLL_MAPPING
 from model.rule import Rule
 from utils.mongo_paginate import paginate
 from utils.web import BaseRequestHandler
@@ -26,12 +27,30 @@ class RuleHandler(BaseRequestHandler):
 
     async def post(self):
         data = self.create_rule_schema()
+        # update Event and other related data source
+        _coll_info = RuleParser.coll_info(data['rule'])  # {'event': [ObjectId('60637cd71b57484ca719135e')]}
+        for k, v in _coll_info.items():
+            coll = COLL_MAPPING.get(k)
+            if not coll:
+                raise self.write_parse_args_failed_response(content=f'Collection {k} not found')
+            for coll_id in v:
+                document_obj = await coll.get_by_id(_id=coll_id)
+                if not document_obj.exists:
+                    raise self.write_parse_args_failed_response(content=f'{coll.collection.name}.{coll_id} not found')
+
         try:
             rule = await Rule.create(name=data['name'], rule=data['rule'])
         except DuplicateKeyError as e:
             raise self.write_duplicate_entry(content=str(e))
         except PyMongoError as e:
             raise self.write_unknown_error_response(content=str(e))
+        else:
+            for k, v in _coll_info.items():
+                coll = COLL_MAPPING[k]
+                for coll_id in v:
+                    document_obj = await coll.get_by_id(_id=coll_id)
+                    document_obj.rules.append(rule.id)
+                    await document_obj.save()
         self.write_response(content=rule.to_dict())
 
     async def get(self):

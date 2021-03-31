@@ -43,8 +43,12 @@ def key_builder_only_kwargs(func, *ignore, **kwargs):
     # so this key_builder require a kwargs only func
     extra = ""
     if ignore:
+        if len(ignore) > 1:
+            raise Exception(f"ignore max len 1 got {len(ignore)}, use kwargs only")
         if isinstance(ignore[0], type):
-            extra += f"{ignore[0].__name__}"
+            extra = f"{ignore[0].__name__}"
+        elif isinstance(ignore[0], object):
+            extra = f"{ignore[0].__class__.__name__}"
         else:
             extra = PROJECT_NAME
     kwargs_s = '__'.join(map(lambda x: f"{x[0]}:{x[1]}", kwargs.items()))
@@ -55,14 +59,16 @@ redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, password=REDIS_PASS
 redis_cache_only_kwargs = dict(
     cache=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
     db=REDIS_DB, password=REDIS_PASS,
-    namespace=PROJECT_NAME,
+    # namespace=PROJECT_NAME,
     key_builder=key_builder_only_kwargs,
     plugins=[HitMissRatioPlugin()]
 )
+print(redis_cache_only_kwargs)
 string_serializer = StringSerializer()
 json_serializer = JsonSerializer()
 pickle_serializer = PickleSerializer()
 cache = Cache(
     cache_class=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
-    namespace=PROJECT_NAME, db=REDIS_DB, password=REDIS_PASS, serializer=pickle_serializer
+    # namespace=PROJECT_NAME,
+    db=REDIS_DB, password=REDIS_PASS, serializer=pickle_serializer
 )
