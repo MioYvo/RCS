@@ -1,5 +1,5 @@
 import json
-from typing import Union
+from typing import Union, Optional, Awaitable
 
 import ujson
 from tornado.escape import native_str
@@ -9,11 +9,14 @@ from utils.encoder import MyEncoder
 from utils.http_code import (HTTP_200_OK, HTTP_204_NO_CONTENT, HTTP_422_UNPROCESSABLE_ENTITY,
                              HTTP_400_BAD_REQUEST, HTTP_403_FORBIDDEN,
                              HTTP_500_INTERNAL_SERVER_ERROR, HTTP_401_UNAUTHORIZED)
-from utils.error_code import ERR_UNKNOWN, ERR_NO_CONTENT, ERR_ARG, ERR_MULTIPLE_OBJ_RETURNED
+from utils.error_code import ERR_UNKNOWN, ERR_NOT_FOUND, ERR_ARG, ERR_MULTIPLE_OBJ_RETURNED, ERR_DUPLICATE_ENTRY, \
+    ERR_LOGIC, ERR_FORBIDDEN, ERR_UNAUTHORIZED, ERR_RATE_LIMIT
 
 
-# noinspection PyAbstractClass
 class BaseRequestHandler(RequestHandler):
+    def data_received(self, chunk: bytes) -> Optional[Awaitable[None]]:
+        pass
+
     def finish(self, chunk: Union[str, bytes, dict] = None, status=None):
         if status:
             self.set_status(status)
@@ -64,14 +67,14 @@ class BaseRequestHandler(RequestHandler):
     def write_no_content_response(self):
         self.set_status(HTTP_204_NO_CONTENT)
 
-    def write_not_found_entity_response(self, content=None, message="没有找到对应实体"):
+    def write_not_found_entity_response(self, content=None, message="EntityNotFound"):
         """
         查询id没有结果
         :param message:
         :param content:
         :return:
         """
-        self.write_error_response(content=content, error_code=ERR_NO_CONTENT, message=message,
+        self.write_error_response(content=content, error_code=ERR_NOT_FOUND, message=message,
                                   status_code=HTTP_400_BAD_REQUEST)
 
     def write_multiple_results_found_response(self, content=None):
@@ -109,7 +112,7 @@ class BaseRequestHandler(RequestHandler):
         :param content:
         :return:
         """
-        self.write_error_response(content=content, error_code=1062, message="Duplicate entry",
+        self.write_error_response(content=content, error_code=ERR_DUPLICATE_ENTRY, message="Duplicate entry",
                                   status_code=HTTP_500_INTERNAL_SERVER_ERROR, reason="Duplicate entry")
 
     def write_logic_error_response(self, content=None):
@@ -118,7 +121,7 @@ class BaseRequestHandler(RequestHandler):
         :param content:
         :return:
         """
-        self.write_error_response(content=content, error_code=106, message="LogicResponseFailed",
+        self.write_error_response(content=content, error_code=ERR_LOGIC, message="LogicResponseFailed",
                                   status_code=HTTP_422_UNPROCESSABLE_ENTITY, reason="logic response failed")
 
     def write_forbidden_response(self, content=None, message="Forbidden"):
@@ -128,27 +131,8 @@ class BaseRequestHandler(RequestHandler):
         :param content:
         :return:
         """
-        self.write_error_response(content=content, error_code=107, message=message,
+        self.write_error_response(content=content, error_code=ERR_FORBIDDEN, message=message,
                                   status_code=HTTP_403_FORBIDDEN)
-
-
-    def write_refund_money_error(self, content=None):
-        """
-        退款失败
-        :param content:
-        :return:
-        """
-        self.write_error_response(content=content, error_code=108, message="RefundMoneyFailed",
-                                  status_code=HTTP_422_UNPROCESSABLE_ENTITY, reason="RefundMoneyFailed")
-
-    def write_cost_money_error(self, content=None):
-        """
-        扣款失败
-        :param content:
-        :return:
-        """
-        self.write_error_response(content=content, error_code=109, message="CostMoneyFailed",
-                                  status_code=HTTP_422_UNPROCESSABLE_ENTITY, reason="RefundMoneyFailed")
 
     def write_unauthorized(self, content=None, message="Unauthorized"):
         """
@@ -157,7 +141,7 @@ class BaseRequestHandler(RequestHandler):
         :param message:
         :return:
         """
-        self.write_error_response(content=content, error_code=110, message=message, status_code=HTTP_401_UNAUTHORIZED)
+        self.write_error_response(content=content, error_code=ERR_UNAUTHORIZED, message=message, status_code=HTTP_401_UNAUTHORIZED)
 
     def write_rate_limit_response(self, content=None, message="Rate limit"):
         """
@@ -166,7 +150,7 @@ class BaseRequestHandler(RequestHandler):
         :param content:
         :return:
         """
-        self.write_error_response(content=content, error_code=111, message=message,
+        self.write_error_response(content=content, error_code=ERR_RATE_LIMIT, message=message,
                                   status_code=HTTP_403_FORBIDDEN)
 
     def set_headers(self, headers):

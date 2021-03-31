@@ -1,3 +1,6 @@
+from asyncio import AbstractEventLoop, BaseEventLoop
+from typing import Union
+
 import tornado.ioloop
 import uvloop
 from aiocache import Cache
@@ -8,18 +11,18 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from redis import Redis
 
 from config import MONGO_URI, REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASS, PROJECT_NAME, MONGO_DB, \
-    MONGO_COLLECTION_EVENT, MONGO_COLLECTION_RECORD
+    MONGO_COLLECTION_EVENT, MONGO_COLLECTION_RECORD, MONGO_COLLECTION_RULE
 from utils.logger import Logger
 
 uvloop.install()
 ioloop = tornado.ioloop.IOLoop.current()
-# noinspection PyUnresolvedReferences
-io_loop = ioloop.asyncio_loop
+io_loop: Union[AbstractEventLoop, BaseEventLoop] = ioloop.asyncio_loop
 
 m_client: AsyncIOMotorClient = AsyncIOMotorClient(str(MONGO_URI), io_loop=io_loop)
 m_db: AgnosticDatabase = getattr(m_client, MONGO_DB)
 event_collection: AgnosticCollection = getattr(m_db, MONGO_COLLECTION_EVENT)
 record_collection: AgnosticCollection = getattr(m_db, MONGO_COLLECTION_RECORD)
+rule_collection: AgnosticCollection = getattr(m_db, MONGO_COLLECTION_RULE)
 
 logger = Logger(name="RCS")
 
@@ -38,8 +41,14 @@ def key_builder_only_kwargs(func, *ignore, **kwargs):
     # if you call func by args not kwargs, like: `SomeClass().func(a)`
     # *ignore will be [self, a], *self* is different in every call
     # so this key_builder require a kwargs only func
+    extra = ""
+    if ignore:
+        if isinstance(ignore[0], type):
+            extra += f"{ignore[0].__name__}"
+        else:
+            extra = PROJECT_NAME
     kwargs_s = '__'.join(map(lambda x: f"{x[0]}:{x[1]}", kwargs.items()))
-    return f'{PROJECT_NAME}:{func.__name__}:kwargs:{kwargs_s}'
+    return f'{extra}:{func.__name__}:kwargs:{kwargs_s}'
 
 
 redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, password=REDIS_PASS)

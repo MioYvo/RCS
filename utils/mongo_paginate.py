@@ -6,7 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorCursor, AsyncIOMotorCollection
 from pymongo import DESCENDING, ASCENDING
 from tornado.web import Finish
 
-from utils.error_code import ERR_NO_CONTENT
+from utils.error_code import ERR_NOT_FOUND
 from utils.http_code import HTTP_400_BAD_REQUEST
 
 
@@ -175,6 +175,6 @@ async def paginate(collection: AsyncIOMotorCollection, query: dict,
     total: int = await collection.count_documents(query)
 
     if not total and page != 1 and error_out:
-        raise PageFailedError(error_code=ERR_NO_CONTENT, msg='no results', status_code=HTTP_400_BAD_REQUEST)
+        raise PageFailedError(error_code=ERR_NOT_FOUND, msg='no results', status_code=HTTP_400_BAD_REQUEST)
 
     return Pagination(query=query, page=page, per_page=per_page, total=total, items=items)

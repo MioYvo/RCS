@@ -1,13 +1,12 @@
 from typing import Optional, Union, Tuple
 
-import jsonschema
 from bson import ObjectId
 from motor.core import AgnosticCollection
 from pymongo.results import UpdateResult, InsertOneResult
-from pytz import utc
 
 from config.clients import event_collection
 from model import BaseCollection
+from utils.event_schema import EventSchema
 from utils.logger import Logger
 from utils.mbson import convert_son_to_json_schema
 from utils.gtz import Dt
@@ -39,7 +38,7 @@ class Event(BaseCollection):
         if not self.schema:
             raise Exception("No event_schema exists in object")
         if self._id:
-            update_rst: UpdateResult = await event_collection.update_one(
+            update_rst: UpdateResult = await self.collection.update_one(
                 {"_id": self._id},
                 {"$set": {"schema": self.schema, "name": self.name,
                           "update_at": Dt.now_ts()}},
@@ -48,7 +47,7 @@ class Event(BaseCollection):
             )
             rst = True if update_rst.modified_count else False
         else:
-            insert_rst: InsertOneResult = await event_collection.insert_one({
+            insert_rst: InsertOneResult = await self.collection.insert_one({
                 "schema": self.schema, "name": self.name,
                 "update_at": Dt.now_ts(), "create_at": Dt.now_ts()
             })
@@ -61,17 +60,27 @@ class Event(BaseCollection):
 
     def validate(self, json: dict) -> Tuple[bool, str]:
         try:
-            jsonschema.validate(schema=convert_son_to_json_schema(self.schema), instance=json)
+            EventSchema.validate(self.schema, json)
         except Exception as e:
             return False, str(e)
         else:
             return True, ''
 
+    async def fetch_strategy_latest_record(self, metric: str):
+        from model.record import Record
+        record = await Record.get_latest_by_event_id(event_id=self.id)
+        if not record:
+            raise Exception('record not found')
+        if record.event.get(metric) is not None:
+            return record.event[metric]
+        else:
+            raise Exception('metric func not implemented')
+
     def to_dict(self) -> dict:
         return {
             "id": str(self._id),
             "name": self.name,
-            "schema": convert_son_to_json_schema(self.schema),
+            "schema": self.schema,
             "update_at": self.update_at,
             "create_at": self.create_at,
         }

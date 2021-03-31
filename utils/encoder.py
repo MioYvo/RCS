@@ -2,12 +2,13 @@
 # __author__ = 'Mio'
 from collections import defaultdict
 from datetime import datetime, timedelta
+from decimal import Decimal
 from enum import Enum
 from json import JSONEncoder
 from uuid import UUID
 
 # from sqlalchemy.exc import SQLAlchemyError
-from bson import ObjectId
+from bson import ObjectId, Decimal128
 from tornado.escape import native_str
 
 
@@ -32,6 +33,8 @@ class MyEncoder(JSONEncoder):
         if isinstance(o, UUID):
             return str(o)
         if isinstance(o, ObjectId):
+            return str(o)
+        if isinstance(o, (Decimal128, Decimal)):
             return str(o)
 
         return JSONEncoder.default(self, o)

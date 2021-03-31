@@ -5,7 +5,7 @@ from math import ceil
 from sqlalchemy.orm import Query
 from tornado.web import Finish
 
-from utils.error_code import ERR_NO_CONTENT
+from utils.error_code import ERR_NOT_FOUND
 from utils.http_code import HTTP_400_BAD_REQUEST
 
 
@@ -170,6 +170,6 @@ def paginate(query, page=1, per_page=20, error_out=True, max_per_page=None):
     total = query.order_by(None).count()
 
     if not total and page != 1 and error_out:
-        raise PageFailedError(error_code=ERR_NO_CONTENT, msg='no results', status_code=HTTP_400_BAD_REQUEST)
+        raise PageFailedError(error_code=ERR_NOT_FOUND, msg='no results', status_code=HTTP_400_BAD_REQUEST)
 
     return Pagination(query, page, per_page, total, items)

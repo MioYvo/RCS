@@ -1,13 +1,12 @@
 from bson import ObjectId
 from bson.errors import InvalidId
+from pymongo.errors import DuplicateKeyError, PyMongoError
 from pymongo.results import DeleteResult
 from schema import Schema, SchemaError, Optional as SchemaOptional, Use, And
-from jsonschema.exceptions import SchemaError as JSONSchemaError
-from jsonschema.validators import validator_for
 
 from config.clients import event_collection
 from model.event import Event
-from utils.mbson import convert_json_schema_to_son
+from utils.event_schema import EventSchema
 from utils.mongo_paginate import paginate
 from utils.web import BaseRequestHandler
 
@@ -15,23 +14,15 @@ from utils.web import BaseRequestHandler
 class EventHandlerBase(BaseRequestHandler):
     def post_schema(self):
         try:
+            origin_data = self.get_body_args()
             _data = Schema({
                 "name": And(str, lambda x: 0 < len(x) < 32),
-                "schema": And(dict, Use(convert_json_schema_to_son)),
-            }, ignore_extra_keys=True).validate(self.get_body_args())
+                "schema": And(dict, Use(EventSchema.parse)),
+            }, ignore_extra_keys=True).validate(origin_data)
         except SchemaError as e:
             raise self.write_parse_args_failed_response(content=str(e))
         else:
-            return _data
-
-    def validate_schema(self) -> dict:
-        _query = self.post_schema()
-        try:
-            cls = validator_for(_query['schema'])
-            cls.check_schema(_query['schema'])
-        except JSONSchemaError as e:
-            raise self.write_parse_args_failed_response(content=str(e))
-        return _query
+            return _data, origin_data['schema']
 
 
 class EventHandler(EventHandlerBase):
@@ -94,7 +85,7 @@ class EventHandler(EventHandlerBase):
         @apiGroup Event
 
         @apiParam {String} name 事件名字
-        @apiParam {Object} schema JSON Schema draft#7
+        @apiParam {Object} schema JSON Schema draft#7 4 3
 
         @apiUse Response
         @apiSuccess {Object} content content of data.
@@ -104,8 +95,13 @@ class EventHandler(EventHandlerBase):
         @apiSuccess {String} Content.update_at 修改时间, UTC
         @apiSuccess {String} Content.create_at 创建时间, UTC
         """
-        _query = self.validate_schema()
-        event = await Event.create(name=_query['name'], schema=_query['schema'])
+        _query, origin_schema = self.post_schema()
+        try:
+            event = await Event.create(name=_query['name'], schema=origin_schema)
+        except DuplicateKeyError as e:
+            raise self.write_duplicate_entry(content=str(e))
+        except PyMongoError as e:
+            raise self.write_unknown_error_response(content=str(e))
         self.write_response(content=event.to_dict())
 
     async def delete(self):
@@ -120,7 +116,7 @@ class EventHandler(EventHandlerBase):
         @apiSuccess {Object} content content of data.
         @apiSuccess {Number} Content.deleted_count 已删除数量
         """
-        delete_result: DeleteResult = await Event.del_events(self.delete_schema()['ids'])
+        delete_result: DeleteResult = await Event.delete_many(self.delete_schema()['ids'])
         self.write_response(content=dict(deleted_count=delete_result.deleted_count))
 
     def delete_schema(self):
@@ -187,8 +183,8 @@ class EventIdHandler(EventHandlerBase):
         if not event.exists:
             raise self.write_not_found_entity_response()
 
-        _query = self.validate_schema()
-        event.schema = _query['schema']
+        _query, origin_schema = self.post_schema()
+        event.schema = origin_schema
         event.name = _query['name']
         await event.save()
         self.write_response(content=event.to_dict())
@@ -218,4 +214,3 @@ class EventIdHandler(EventHandlerBase):
             self.write_no_content_response()
         else:
             self.write_logic_error_response(content=dict(id=event_id))
-

@@ -29,19 +29,19 @@ class BaseCollection:
         self._id = ObjectId(value)
 
     async def load(self):
-        event = await self.collection.find_one({"_id": ObjectId(self._id)})
-        if not event:
+        docu = await self.collection.find_one({"_id": ObjectId(self._id)})
+        if not docu:
             self.exists = False
             return
         else:
             self.exists = True
 
-        for attr in event:
+        for attr in docu:
             if hasattr(self, attr):
-                setattr(self, attr, event[attr])
+                setattr(self, attr, docu[attr])
 
     @classmethod
-    async def create(cls):
+    async def create(cls, *args, **kwargs):
         raise NotImplementedError
 
     async def save(self) -> bool:
@@ -55,29 +55,9 @@ class BaseCollection:
             return rst
 
     async def _save(self) -> bool:
-        raise NotImplementedError
-        # if not self.schema:
-        #     raise Exception("No event_schema exists in object")
-        # if self._id:
-        #     update_rst: UpdateResult = await event_collection.update_one(
-        #         {"_id": self._id},
-        #         {"$set": {"schema": self.schema, "name": self.name,
-        #                   "update_at": Dt.now_ts()}},
-        #         # projection={"_id": False},
-        #         upsert=False
-        #     )
-        #     rst = True if update_rst.modified_count else False
-        # else:
-        #     insert_rst: InsertOneResult = await event_collection.insert_one({
-        #         "schema": self.schema, "name": self.name,
-        #         "update_at": Dt.now_ts(), "create_at": Dt.now_ts()
-        #     })
-        #     rst = True if insert_rst.inserted_id else False
-        #     self._id = str(insert_rst.inserted_id)
-        #
         # await self.load()  # reload from db
         # await self.rebuild_cache()
-        # return rst
+        raise NotImplementedError
 
     async def refresh_cache(self) -> None:
         await cache.delete(key=self.cache_key)
@@ -98,7 +78,7 @@ class BaseCollection:
         return event
 
     @classmethod
-    async def del_events(cls, _ids: List[str]) -> DeleteResult:
+    async def delete_many(cls, _ids: List[str]) -> DeleteResult:
         delete_result: DeleteResult = await cls.collection.delete_many({"_id": {"$in": _ids}})
         for _id in _ids:
             await cls(_id).refresh_cache()

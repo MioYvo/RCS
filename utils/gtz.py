@@ -4,7 +4,7 @@ from datetime import datetime, time, timedelta, date
 from typing import Union, Optional
 
 from dateutil import parser
-from pytz import utc, BaseTzInfo
+from pytz import utc, BaseTzInfo, timezone
 # noinspection PyProtectedMember
 from pytz.tzinfo import DstTzInfo
 from tornado.escape import native_str
@@ -28,7 +28,10 @@ class Dt:
     precision_ms = 13
 
     @classmethod
-    def from_str(cls, _str, default_tz=local_timezone):
+    def from_str(cls, _str, default_tz: Union[DstTzInfo, BaseTzInfo, str] = local_timezone):
+        if isinstance(default_tz, str):
+            default_tz = timezone(default_tz)
+
         dt = string_2_datetime(_str)
         if dt.tzinfo:
             dt = dt.astimezone(local_timezone)
@@ -37,7 +40,10 @@ class Dt:
         return dt
 
     @classmethod
-    def from_ts(cls, ts: int):
+    def from_ts(cls, ts: Union[int, str, float]):
+        if isinstance(ts, str):
+            ts = float(ts)
+
         if int(math.log10(ts) + 1) == cls.precision_ms:
             return cls.add_tz(datetime.fromtimestamp(ts / 1000), tz=utc)
         else:

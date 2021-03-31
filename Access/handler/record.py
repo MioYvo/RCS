@@ -1,18 +1,17 @@
-from abc import ABC
-
 from bson import ObjectId
 from schema import Schema, SchemaError, Optional as SchemaOptional, Use, And
+from tornado.web import Finish
 
 from config import AccessExchangeName, EVENT_ROUTING_KEY
-from config.clients import record_collection
 from model.event import Event
+from model.record import Record
 from utils.amqp_publisher import publisher
 from utils.gtz import Dt
 from utils.mongo_paginate import paginate
 from utils.web import BaseRequestHandler
 
 
-class RecordHandler(BaseRequestHandler, ABC):
+class RecordHandler(BaseRequestHandler):
     async def post(self):
         """
         @api {post} /record Create Record
@@ -31,6 +30,7 @@ class RecordHandler(BaseRequestHandler, ABC):
         @apiSuccess {Object} Content.event 事件
         """
         data = await self.schema_post()
+        # noinspection PyUnresolvedReferences
         tf, rst, sent_msg = await publisher(
             conn=self.application.amqp_connection,
             message=data, exchange_name=AccessExchangeName,
@@ -55,9 +55,11 @@ class RecordHandler(BaseRequestHandler, ABC):
             # validate event
             validate_rst, validate_info = event.validate(_data['event'])
             if not validate_rst:
-                raise self.write_parse_args_failed_response(content=validate_info)
+                raise self.write_parse_args_failed_response(message=validate_info)
         except SchemaError as e:
             raise self.write_parse_args_failed_response(str(e))
+        except Finish as e:
+            raise e
         except Exception as e:
             raise self.write_parse_args_failed_response(str(e))
         else:
@@ -71,9 +73,9 @@ class RecordHandler(BaseRequestHandler, ABC):
         query = {}
         if _query['name']:
             query["name"] = {"$regex": _query['name']}
-        pagination = await paginate(collection=record_collection, query=query, page=_query['page'],
+        pagination = await paginate(collection=Record.collection, query=query, page=_query['page'],
                                     per_page=_query['per_page'], order_by=_query['sort'], desc=_query['desc'])
-        rst = [(await Event.get_by_id(_id=doc['_id'])).to_dict() async for doc in pagination.items]
+        rst = [(await Record.get_by_id(_id=doc['_id'])).to_dict() async for doc in pagination.items]
         pagination.count = len(rst)
         self.write_response(rst, meta={"pagination": pagination.php_meta_pagination})
 
