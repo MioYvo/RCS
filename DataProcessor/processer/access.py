@@ -4,7 +4,7 @@ from aio_pika import IncomingMessage
 from bson import ObjectId
 from schema import Schema, SchemaError, And, Use
 
-from config import AccessExchangeName, RULE_EXE_ROUTING_KEY
+from config import RCSExchangeName, RULE_EXE_ROUTING_KEY, DATA_PROCESSOR_ROUTING_KEY
 from model.event import Event
 from model.record import Record
 from model.rule import Rule
@@ -17,7 +17,7 @@ from utils.logger import Logger
 
 class AccessConsumer(AmqpConsumer):
     logger = Logger(name='AccessConsumer')
-    routing_key = "event"
+    routing_key = DATA_PROCESSOR_ROUTING_KEY
 
     async def validate_message(self, message):
         try:
@@ -104,7 +104,7 @@ class AccessConsumer(AmqpConsumer):
         }
         tf, rst, sent_msg = await publisher(
             conn=self.amqp_connection,
-            message=data, exchange_name=AccessExchangeName,
+            message=data, exchange_name=RCSExchangeName,
             routing_key=RULE_EXE_ROUTING_KEY, timestamp=Dt.now_ts(),
         )
         if tf:

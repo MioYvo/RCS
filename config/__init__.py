@@ -11,15 +11,16 @@ from utils.gtz import local_timezone
 # Project
 PROJECT_NAME = getenv("PROJECT_NAME", "DataProcessor")
 SCHEMA_TTL = int(getenv('SCHEMA_TTL', 600))
-AccessExchangeName = getenv('AccessExchangeName', 'Access')
+RCSExchangeName = getenv('RCSExchangeName', 'RCS')
 AccessExchangeType = ExchangeType(getenv('AccessExchangeType', 'direct'))
-EVENT_ROUTING_KEY = getenv('EVENT_ROUTING_KEY', 'event')
-RULE_EXE_ROUTING_KEY = getenv('EVENT_ROUTING_KEY', 'RuleExecutor')
+DATA_PROCESSOR_ROUTING_KEY = getenv('DATA_PROCESSOR_ROUTING_KEY', 'DataProcessor')
+RULE_EXE_ROUTING_KEY = getenv('RULE_EXE_ROUTING_KEY', 'RuleEngineExe')
 RUN_PORT = int(getenv('RUN_PORT', '8081'))
 
 # DataProcessor
 PRE_FETCH_COUNT = int(getenv('PRE_FETCH_COUNT', 10))
-QUEUE_NAME = getenv('QUEUE_NAME', 'DataProcessor')
+DATA_PROCESSOR_QUEUE_NAME = getenv('DATA_PROCESSOR_QUEUE_NAME', 'DataProcessor')
+RULE_EXE_QUEUE_NAME = getenv('RULE_EXE_QUEUE_NAME', 'RuleEngineExe')
 
 # MongoDB
 MONGO_HOST = getenv('MONGO_HOST', 'localhost')

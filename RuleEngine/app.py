@@ -17,8 +17,8 @@ from RuleEngine.urls import urls
 # from RuleEngine.processer.access import AccessConsumer
 from utils.mpika import make_consumer
 from config import (
-    PROJECT_NAME, PIKA_URL, AccessExchangeType, AccessExchangeName,
-    MONGO_URI, PRE_FETCH_COUNT, RUN_PORT, QUEUE_NAME)
+    PROJECT_NAME, PIKA_URL, AccessExchangeType, RCSExchangeName,
+    MONGO_URI, PRE_FETCH_COUNT, RUN_PORT, DATA_PROCESSOR_QUEUE_NAME, RULE_EXE_QUEUE_NAME)
 
 define("port", default=RUN_PORT, help=f"{PROJECT_NAME} run on the given port", type=int)
 define("debug", default=False, help="run in debug mode", type=bool)
@@ -31,7 +31,7 @@ async def make_queues(amqp_connection: Connection):
     # for task_type in TYPE_ENUM:
     #     await channel.declare_queue(name=task_type, durable=True, auto_delete=False)
     # district topic exchange, one worker one queue
-    await channel.declare_exchange(AccessExchangeName, type=AccessExchangeType, durable=True)
+    await channel.declare_exchange(RCSExchangeName, type=AccessExchangeType, durable=True)
     await channel.close()
 
 
@@ -44,8 +44,8 @@ async def make_app():
     consumer = RuleExecutorConsumer(amqp_connection=amqp_connection)
     rule_executor_consumers: List[ConsumerTag] = await make_consumer(
         amqp_connection=amqp_connection,
-        queue_name=QUEUE_NAME,
-        exchange=AccessExchangeName,
+        queue_name=RULE_EXE_QUEUE_NAME,
+        exchange=RCSExchangeName,
         routing_key=consumer.routing_key,
         consume=consumer.consume,
         prefetch_count=PRE_FETCH_COUNT,

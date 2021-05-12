@@ -11,8 +11,9 @@ from tornado.options import options
 
 sys.path.insert(0, str(Path().absolute().parent))
 
-from config.clients import ioloop, io_loop
+from config.clients import ioloop
 from Access.app import app
+from config import PROJECT_NAME
 
 
 # noinspection PyUnusedLocal
@@ -43,7 +44,7 @@ def signal_handler(sig, frame):
 def main():
     # init db
     app.listen(options.port)
-    logging.info(f"App run on: http://localhost:{options.port}")
+    logging.info(f"{PROJECT_NAME} run on: http://localhost:{options.port}")
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
     ioloop.start()

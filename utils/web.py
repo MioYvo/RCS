@@ -1,7 +1,6 @@
 import json
 from typing import Union, Optional, Awaitable
 
-import ujson
 from tornado.escape import native_str
 from tornado.web import RequestHandler, Finish
 
@@ -193,5 +192,5 @@ class BaseRequestHandler(RequestHandler):
             return {key: native_str(value[-1])
                     for key, value in self.request.body_arguments.items()}
         if self.request.body:
-            return ujson.loads(self.request.body)
+            return json.loads(self.request.body)
         return {}

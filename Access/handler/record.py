@@ -2,7 +2,7 @@ from bson import ObjectId
 from schema import Schema, SchemaError, Optional as SchemaOptional, Use, And
 from tornado.web import Finish
 
-from config import AccessExchangeName, EVENT_ROUTING_KEY
+from config import RCSExchangeName, DATA_PROCESSOR_ROUTING_KEY
 from model.event import Event
 from model.record import Record
 from utils.amqp_publisher import publisher
@@ -33,8 +33,8 @@ class RecordHandler(BaseRequestHandler):
         # noinspection PyUnresolvedReferences
         tf, rst, sent_msg = await publisher(
             conn=self.application.amqp_connection,
-            message=data, exchange_name=AccessExchangeName,
-            routing_key=EVENT_ROUTING_KEY, timestamp=Dt.now_ts(),
+            message=data, exchange_name=RCSExchangeName,
+            routing_key=DATA_PROCESSOR_ROUTING_KEY, timestamp=Dt.now_ts(),
         )
         if tf:
             self.write_response(content=dict(rst))

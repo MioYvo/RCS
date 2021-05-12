@@ -3,6 +3,7 @@ import logging
 import signal
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path().absolute().parent))
 
 import tornado.escape
@@ -12,6 +13,7 @@ from tornado.options import options
 
 from RuleEngine.app import app
 from config.clients import ioloop
+from config import PROJECT_NAME
 
 
 # noinspection PyUnusedLocal
@@ -41,7 +43,7 @@ def signal_handler(sig, frame):
 
 def main():
     app.listen(options.port)
-    logging.info(f"App run on: http://localhost:{options.port}")
+    logging.info(f"{PROJECT_NAME} run on: http://localhost:{options.port}")
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
     ioloop.start()

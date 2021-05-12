@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Union, Optional, Dict, List
 
 from bson import Decimal128, ObjectId
-from paco import map as paco_map
+# from paco import map as paco_map
 
 from model.event import Event
 from config.clients import io_loop

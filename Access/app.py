@@ -1,5 +1,6 @@
 # coding=utf-8
 # __author__ = 'Mio'
+import os
 from pathlib import Path
 
 import tornado.web
@@ -9,7 +10,7 @@ from aio_pika import connect_robust, Channel, Connection
 from tornado.options import define, options, parse_command_line
 
 from config.clients import m_client, m_db, ioloop
-from config import PROJECT_NAME, PIKA_URL, MONGO_URI, AccessExchangeType, AccessExchangeName
+from config import PROJECT_NAME, PIKA_URL, MONGO_URI, AccessExchangeType, RCSExchangeName
 from Access.urls import urls
 
 define("port", default=8080, help=f"{PROJECT_NAME} run on the given port", type=int)
@@ -23,7 +24,7 @@ async def make_queues(amqp_connection: Connection):
     # for task_type in TYPE_ENUM:
     #     await channel.declare_queue(name=task_type, durable=True, auto_delete=False)
     # district topic exchange, one worker one queue
-    await channel.declare_exchange(AccessExchangeName, type=AccessExchangeType, durable=True)
+    await channel.declare_exchange(RCSExchangeName, type=AccessExchangeType, durable=True)
     await channel.close()
 
 
@@ -32,7 +33,7 @@ async def make_app():
         raise Exception(f"db connect failed or no db exists: {MONGO_URI}")
     amqp_connection = await connect_robust(
         url=PIKA_URL,
-        client_properties={'client_properties': {'connection_name': 'RCSAccess'}})
+        client_properties={'client_properties': {'connection_name': f"{PROJECT_NAME}-{os.getpid()}"}})
     await make_queues(amqp_connection=amqp_connection)
 
     # a_redis: RedisConnection = await aioredis.create_redis_pool(
