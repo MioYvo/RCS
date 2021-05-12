@@ -1,61 +1,65 @@
-from typing import Generator
+import json
+from math import ceil
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Union, Any
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
-from pydantic import ValidationError
-from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from fastapi.responses import Response
 
-from app import crud, models, schemas
-from app.core import security
-from app.core.config import settings
-from app.db.session import SessionLocal
-
-reusable_oauth2 = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1_STR}/login/access-token"
-)
+from model.odm import Event
+from utils.encoder import MyEncoder
 
 
-def get_db() -> Generator:
-    try:
-        db = SessionLocal()
-        yield db
-    finally:
-        db.close()
+class Pagination(BaseModel):
+    total: int
+    count: int
+    per_page: int
+    current_page: int
+    total_pages: int
 
 
-def get_current_user(
-    db: Session = Depends(get_db), token: str = Depends(reusable_oauth2)
-) -> models.User:
-    try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[security.ALGORITHM]
-        )
-        token_data = schemas.TokenPayload(**payload)
-    except (jwt.JWTError, ValidationError):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Could not validate credentials",
-        )
-    user = crud.user.get(db, id=token_data.sub)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user
+# !!! Error !!! cannot use in endpoints right now
+class EventsOut(BaseModel):
+    meta: Dict
+    error_code: Optional[int] = 0
+    message: Optional[str] = ""
+    content: Union[list, List[Event]]
 
 
-def get_current_active_user(
-    current_user: models.User = Depends(get_current_user),
-) -> models.User:
-    if not crud.user.is_active(current_user):
-        raise HTTPException(status_code=400, detail="Inactive user")
-    return current_user
+@dataclass
+class Page:
+    total: int
+    page: int
+    per_page: int
+    count: int = 0
+
+    @property
+    def pages(self):
+        if self.per_page == 0 or self.total is None:
+            pages = 0
+        else:
+            pages = int(ceil(self.total / float(self.per_page)))
+        return pages
+
+    def meta_pagination(self):
+        return {
+            "total": self.total,
+            "count": self.count,
+            "per_page": self.per_page,
+            "current_page": self.page,
+            "total_pages": self.pages,
+        }
 
 
-def get_current_active_superuser(
-    current_user: models.User = Depends(get_current_user),
-) -> models.User:
-    if not crud.user.is_superuser(current_user):
-        raise HTTPException(
-            status_code=400, detail="The user doesn't have enough privileges"
-        )
-    return current_user
+class YvoJSONResponse(Response):
+    media_type = "application/json"
+
+    def render(self, content: Any) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+            cls=MyEncoder
+        ).encode("utf-8")

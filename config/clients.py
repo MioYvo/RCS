@@ -1,7 +1,7 @@
-from asyncio import AbstractEventLoop, BaseEventLoop
+from asyncio import AbstractEventLoop, BaseEventLoop, get_event_loop
 from typing import Union
 
-import tornado.ioloop
+# import tornado.ioloop
 import uvloop
 from aiocache import Cache
 from aiocache.plugins import HitMissRatioPlugin
@@ -15,9 +15,10 @@ from config import MONGO_URI, REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASS, PROJ
 from utils.logger import Logger
 
 uvloop.install()
-ioloop = tornado.ioloop.IOLoop.current()
+ioloop = get_event_loop()
 # noinspection PyUnresolvedReferences
-io_loop: Union[AbstractEventLoop, BaseEventLoop] = ioloop.asyncio_loop
+# io_loop: Union[AbstractEventLoop, BaseEventLoop] = ioloop.asyncio_loop
+io_loop: Union[AbstractEventLoop, BaseEventLoop] = ioloop
 
 m_client: AsyncIOMotorClient = AsyncIOMotorClient(str(MONGO_URI), io_loop=io_loop)
 m_db: AgnosticDatabase = getattr(m_client, MONGO_DB)
@@ -62,6 +63,14 @@ redis_cache_only_kwargs = dict(
     db=REDIS_DB, password=REDIS_PASS,
     # namespace=PROJECT_NAME,
     key_builder=key_builder_only_kwargs,
+    plugins=[HitMissRatioPlugin()]
+)
+redis_cache_no_self = dict(
+    cache=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
+    db=REDIS_DB, password=REDIS_PASS,
+    # namespace=PROJECT_NAME,
+    # key_builder=key_builder_only_kwargs,
+    noself=True,
     plugins=[HitMissRatioPlugin()]
 )
 print(redis_cache_only_kwargs)

@@ -47,7 +47,7 @@ def main():
     logging.info(f"{PROJECT_NAME} run on: http://localhost:{options.port}")
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
-    ioloop.start()
+    ioloop.run_forever()
 
 
 if __name__ == "__main__":

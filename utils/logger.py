@@ -217,14 +217,14 @@ def enable_pretty_logging(logging_="INFO",
                           log_rotate_interval=1,
                           log_to_stderr=None,
 
-                          logger: Optional[logging.Logger] = None) -> None:
+                          logger: Optional[logging.Logger] = None) -> Optional[logging.Logger]:
     """Turns on formatted logging output as configured.
 
     This is called automatically by `tornado.options.parse_command_line`
     and `tornado.options.parse_config_file`.
     """
     if logging_ is None or logging_.lower() == "none":
-        return
+        return None
     if logger is None:
         logger = logging.getLogger()
     logger.setLevel(getattr(logging, logging_.upper()))
@@ -259,6 +259,8 @@ def enable_pretty_logging(logging_="INFO",
         channel = logging.StreamHandler()
         channel.setFormatter(LogFormatter())
         logger.addHandler(channel)
+
+    return logger
 
 
 class Logger:

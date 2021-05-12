@@ -78,4 +78,4 @@ class MatildaApp(tornado.web.Application):
         self.a_redis = a_redis
 
 
-app: MatildaApp = ioloop.asyncio_loop.run_until_complete(make_app())
+app: MatildaApp = ioloop.run_until_complete(make_app())

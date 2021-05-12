@@ -1,27 +1,32 @@
-from typing import Optional
+import logging
+import sys
+from pathlib import Path
+from loguru import logger
+sys.path.insert(0, str(Path().absolute().parent))
 
-from fastapi import FastAPI
-from pydantic import BaseModel
+from AccessFastAPI.core.logger import InterceptHandler, format_record
+from AccessFastAPI.api.api_v1.api import api_router
+from AccessFastAPI.core.app import app
 
-app = FastAPI()
+logging.getLogger().handlers = [InterceptHandler()]
+logger.configure(
+    handlers=[{"sink": sys.stdout, "level": logging.INFO, "format": format_record}]
+)
+logging.getLogger("uvicorn.access").handlers = [InterceptHandler()]
+# logging.getLogger("uvicorn.error").handlers = [InterceptHandler()]
+# logging.getLogger("uvicorn").handlers = [InterceptHandler()]
+from starlette.middleware.cors import CORSMiddleware
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-class Item(BaseModel):
-    name: str
-    price: float
-    is_offer: Optional[bool] = None
+app.include_router(api_router, prefix="/api/v1")
 
-
-@app.get("/")
-def read_root():
-    return {"Hello": "World"}
-
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Optional[str] = None):
-    return {"item_id": item_id, "q": q}
-
-
-@app.put("/items/{item_id}")
-def update_item(item_id: int, item: Item):
-    return {"item_name": item.name, "item_id": item_id}
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

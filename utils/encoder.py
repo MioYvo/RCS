@@ -5,15 +5,30 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 from json import JSONEncoder
+from typing import Union, Optional
 from uuid import UUID
 
-# from sqlalchemy.exc import SQLAlchemyError
 from bson import ObjectId, Decimal128
-from tornado.escape import native_str
+
+unicode_type = str
+_TO_UNICODE_TYPES = (unicode_type, type(None))
+
+
+def to_unicode(value: Union[None, str, bytes]) -> Optional[str]:  # noqa: F811
+    """Converts a string argument to a unicode string.
+
+    If the argument is already a unicode string or None, it is returned
+    unchanged.  Otherwise it must be a byte string and is decoded as utf8.
+    """
+    if isinstance(value, _TO_UNICODE_TYPES):
+        return value
+    if not isinstance(value, bytes):
+        raise TypeError("Expected bytes, unicode, or None; got %r" % type(value))
+    return value.decode("utf-8")
 
 
 def g_str(string):
-    return native_str(string).strip()
+    return to_unicode(string).strip()
 
 
 class MyEncoder(JSONEncoder):

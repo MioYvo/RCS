@@ -1,24 +1,16 @@
 [tool.poetry]
-name = "a"
+name = "Access"
 version = "0.0.1"
-description = ""
+description = "Access for RCS."
 authors = ["mio <liurusi.101@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.8.6"
 uvicorn = {extras = ["standard"], version = "^0.13.4"}
 fastapi = "^0.65.0"
-#python-multipart = "^0.0.5"
-#email-validator = "^1.0.5"
-#requests = "^2.23.0"
-#passlib = {extras = ["bcrypt"], version = "^1.7.2"}
 tenacity = "^6.1.0"
 pydantic = "^1.4"
-#raven = "^6.10.0"
 gunicorn = "^20.0.4"
-motor = "^2.4.0"
-#jinja2 = "^2.11.2"
-#pytest = "^5.4.1"
 python-jose = {extras = ["cryptography"], version = "^3.1.0"}
 aio-pika = "^6.8.0"
 aiocache = {extras = ["redis"], version = "^0.11.1"}
@@ -26,6 +18,10 @@ uvloop = "^0.15.2"
 python-dateutil = "^2.8.1"
 pytz = "^2021.1"
 tzlocal = "^2.1"
+odmantic = "^0.3.5"
+schema = "^0.7.4"
+redis = "^3.5.3"
+loguru = "^0.5.3"
 
 [tool.poetry.dev-dependencies]
 #mypy = "^0.770"
@@ -46,7 +42,7 @@ line_length = 88
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
 
-[[tool.poetry.source]]
-name = "tsinghua"
-url = "https://pypi.tuna.tsinghua.edu.cn/simple"
-default = true
+#[[tool.poetry.source]]
+#name = "tsinghua"
+#url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+#default = true

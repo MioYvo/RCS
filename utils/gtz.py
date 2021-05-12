@@ -7,7 +7,6 @@ from dateutil import parser
 from pytz import utc, BaseTzInfo, timezone
 # noinspection PyProtectedMember
 from pytz.tzinfo import DstTzInfo
-from tornado.escape import native_str
 from tzlocal import get_localzone
 
 UTC_DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
@@ -20,7 +19,7 @@ local_timezone: Union[DstTzInfo, BaseTzInfo] = get_localzone()
 
 def string_2_datetime(_string):
     if isinstance(_string, bytes):
-        _string = native_str(_string)
+        _string = _string.decode('utf-8')
     return parser.parse(_string)
 
 
