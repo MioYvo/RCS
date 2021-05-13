@@ -11,15 +11,19 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from AccessFastAPI.core.exceptions import RCSException
-from AccessFastAPI.core.yvo_engine import YvoEngine
+from utils.exceptions import RCSException
+from utils.yvo_engine import YvoEngine
 from config import PROJECT_NAME, MONGO_URI, MONGO_DB, PIKA_URL, RCSExchangeName, AccessExchangeType, REDIS_DB, \
-    REDIS_PASS, REDIS_CONN_MIN, REDIS_CONN_MAX, REDIS_HOST, REDIS_PORT
+    REDIS_PASS, REDIS_CONN_MIN, REDIS_CONN_MAX, REDIS_HOST, REDIS_PORT, DOCS_URL, REDOC_URL, OPENAPI_URL, ENABLE_DOC
 from utils.error_code import ERR_DB_OPERATE_FAILED
 
-app = FastAPI(title=PROJECT_NAME)
+if not ENABLE_DOC:
+    DOCS_URL, REDOC_URL, OPENAPI_URL = (None, ) * 3
+
+app = FastAPI(title=PROJECT_NAME, docs_url=DOCS_URL, redoc_url=REDOC_URL, openapi_url=OPENAPI_URL)
 
 
+# noinspection PyUnusedLocal
 @app.exception_handler(RCSException)
 async def unicorn_exception_handler(request: Request, exc: RCSException):
     return JSONResponse(
@@ -28,6 +32,7 @@ async def unicorn_exception_handler(request: Request, exc: RCSException):
     )
 
 
+# noinspection PyUnusedLocal
 @app.exception_handler(pymongo.errors.OperationFailure)
 async def unicorn_exception_handler(request: Request, exc: pymongo.errors.OperationFailure):
     return JSONResponse(

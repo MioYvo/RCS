@@ -3,7 +3,7 @@
 # created: 5/13/21 10:56 PM
 from typing import Any
 
-from utils.error_code import ERR_NOT_FOUND, ERR_ARG, ERR_DUPLICATE_ENTRY
+from utils.error_code import ERR_NOT_FOUND, ERR_ARG
 from utils.http_code import HTTP_400_BAD_REQUEST
 
 
@@ -27,7 +27,5 @@ class RCSExcErrArg(RCSException):
             error_code=ERR_ARG, message="ArgsParseFailed", content=content)
 
 
-# class RCSExcNotDupEntry(RCSException):
-#     def __init__(self, content: Any = None):
-#         super(RCSExcNotDupEntry, self).__init__(
-#             error_code=ERR_DUPLICATE_ENTRY, message="DuplicateEntry", content=content)
+class APIError(Exception):
+    pass

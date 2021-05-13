@@ -17,6 +17,10 @@ DATA_PROCESSOR_ROUTING_KEY = getenv('DATA_PROCESSOR_ROUTING_KEY', 'DataProcessor
 RULE_EXE_ROUTING_KEY = getenv('RULE_EXE_ROUTING_KEY', 'RuleEngineExe')
 RUN_PORT = int(getenv('RUN_PORT', '8081'))
 CACHE_NAMESPACE = getenv('CACHE_NAMESPACE', 'RCS')
+DOCS_URL = getenv('DOCS_URL', '/docs')
+OPENAPI_URL = getenv('OPENAPI_URL', '/openapi.json')
+REDOC_URL = getenv('REDOC_URL', '/redoc')
+ENABLE_DOC = bool(int(getenv('ENABLE_DOC', 0)))
 
 # DataProcessor
 PRE_FETCH_COUNT = int(getenv('PRE_FETCH_COUNT', 10))

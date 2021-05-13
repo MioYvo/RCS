@@ -8,7 +8,7 @@ from loguru import logger
 from odmantic import Model, ObjectId, Reference, Field
 from pydantic import validator
 
-from AccessFastAPI.core.exceptions import RCSExcErrArg
+from utils.exceptions import RCSExcErrArg
 from utils.event_schema import EventSchema
 
 
@@ -17,6 +17,7 @@ from utils.event_schema import EventSchema
 #     dt: Optional[dict]
 #     ts: Optional[dict]
 #     amount: Optional[dict]
+
 
 class Event(Model):
     rcs_schema: dict
@@ -35,11 +36,35 @@ class Event(Model):
             raise RCSExcErrArg(content="EventSchema parse failed")
         return v
 
+    @classmethod
+    def validate_schema(cls, schema: dict, json: dict):
+        try:
+            EventSchema.validate(schema, json)
+        except Exception as e:
+            return False, str(e)
+        else:
+            return True, ''
+
+    async def fetch_strategy_latest_record(self, metric: str):
+        from utils.fastapi_app import app
+        # noinspection PyUnresolvedReferences
+        records = await app.state.engine.gets(Record, Record.event == self.id,
+                                              sort=Record.create_at.desc(), limit=1)
+        # record = await Record.get_latest_by_event_id(event_id=self.id)
+        if records:
+            record = records[0]
+        else:
+            raise Exception('record not found')
+        if record.event_data.get(metric) is not None:
+            return record.event_data[metric]
+        else:
+            raise Exception('metric func not implemented')
+
 
 class Record(Model):
-    event_id: Event = Reference()
-    event: dict
-    event_ts: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+    event: Event = Reference()
+    event_data: dict
+    event_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
 
 

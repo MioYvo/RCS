@@ -1,12 +1,13 @@
 import json
 from math import ceil
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union, Any
+from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from fastapi.responses import Response
 
-from model.odm import Event
+from utils.rule_operator import RuleParser
+from model.odm import Rule
 from utils.encoder import MyEncoder
 
 
@@ -55,3 +56,10 @@ class YvoJSONResponse(Response):
             separators=(",", ":"),
             cls=MyEncoder
         ).encode("utf-8")
+
+
+class RuleE(Rule):
+    @validator('rule', check_fields=False)
+    def check_rule(cls, v):
+        RuleParser.validate(v)
+        return v

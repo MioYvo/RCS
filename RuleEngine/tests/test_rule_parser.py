@@ -2,7 +2,7 @@
 # __email__: "liurusi.101@gmail.com"
 # created: 3/30/21 6:55 PM
 
-from RuleEngine.rule_operator import RuleParser
+from utils.rule_operator import RuleParser
 
 
 def test_rule_evaluate():

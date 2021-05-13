@@ -3,18 +3,17 @@
 # created: 5/12/21 6:57 PM
 from typing import Union, List
 
-import pymongo.errors
-from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
+from fastapi import APIRouter, Query
 from odmantic import ObjectId
 from odmantic.bson import BSON_TYPES_ENCODERS
 from odmantic.field import FieldProxy
 from odmantic.query import SortExpression
-from pydantic import BaseModel
 
-from AccessFastAPI.core.exceptions import RCSExcErrArg, RCSExcNotFound
-from model.odm import Event
-from AccessFastAPI.core.app import app
+from utils.fastapi_app import app
 from AccessFastAPI.api.deps import Page
+from utils.exceptions import RCSExcErrArg, RCSExcNotFound
+from model.odm import Event
 from utils.http_code import HTTP_201_CREATED
 
 router = APIRouter()
@@ -29,11 +28,13 @@ class EventsOut(BaseModel):
 
 
 @router.put("/event/", response_model=Event, status_code=HTTP_201_CREATED,
-            description="Create or update a event. <br />"
-                        "* Do not pass `created_at` at any time. <br />"
-                        "* Update if `id` exists. <br />"
-                        "* `name` and `rcs_schema` are required, other fields are optional.")
-async def create_event(event: Event):
+            description="""
+## Create if no `id` field passed.
+* `name` and `rcs_schema` are required, other fields are optional.
+## Update if `id` field passed.
+* `created_at` and `update_time` will be ignored.
+""")
+async def create_or_update_event(event: Event):
     if event.dict(exclude_unset=True).get('id'):
         # Update
         exists_event = await app.state.engine.find_one(Event, Event.id == event.id)
@@ -90,19 +91,9 @@ async def get_event(event_id: ObjectId):
 
 
 @router.delete("/event/{event_id}", response_model=Event)
-async def get_event(event_id: ObjectId):
+async def delete_event(event_id: ObjectId):
     event = await app.state.engine.find_one(Event, Event.id == event_id)
     if not event:
         raise RCSExcNotFound(entity_id=str(event_id))
     await app.state.engine.delete(event)
     return event
-
-
-# @router.put("/event/{event_id}", response_model=Event)
-# async def get_event(event_id: ObjectId, put: Event):
-#     event = await app.state.engine.find_one(Event, Event.id == event_id)
-#     if not event:
-#         raise HTTPException(404, f"{event_id} not found")
-#     put.id = event_id
-#     app.state.engine.save(put)
-#     return put

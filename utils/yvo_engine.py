@@ -22,7 +22,7 @@ class YvoEngine(AIOEngine):
         super(YvoEngine, self).__init__(motor_client, database)
         self.a_redis_client = a_redis_client
 
-    @cached(ttl=SCHEMA_TTL, serializer=pickle_serializer, **redis_cache_no_self)
+    # @cached(ttl=SCHEMA_TTL, serializer=pickle_serializer, **redis_cache_no_self)
     async def find_one(
         self,
         model: Type[ModelType],
@@ -31,7 +31,7 @@ class YvoEngine(AIOEngine):
         ],  # bool: allow using binary operators w/o plugin,
         sort: Optional[Any] = None,
         return_doc: bool = False,
-        return_doc_include: Optional["AbstractSetIntStr"] = None,
+        return_doc_include: Optional[set] = None,
     ) -> Union[Optional[ModelType], Optional[Dict]]:
         result = await super(YvoEngine, self).find_one(model, *queries, sort=sort)
         logger.info(f'real:get:{model}:{queries}')
@@ -71,7 +71,7 @@ class YvoEngine(AIOEngine):
                    limit: Optional[int] = None,
                    return_doc: bool = False,
 
-                   return_doc_include: Optional["AbstractSetIntStr"] = None) -> List[Model]:
+                   return_doc_include: Optional[set] = None) -> List[Model]:
 
         if not lenient_issubclass(model, Model):
             raise TypeError("Can only call find with a Model class")

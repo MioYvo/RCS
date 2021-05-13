@@ -7,7 +7,7 @@ from typing import Optional
 from aio_pika import IncomingMessage
 from schema import Schema, And, SchemaError
 
-from RuleEngine.rule_operator import RuleParser
+from utils.rule_operator import RuleParser
 from config import RULE_EXE_ROUTING_KEY
 from utils.amqp_consumer import AmqpConsumer
 from utils.logger import Logger

@@ -10,8 +10,9 @@ from typing import Union, Optional, Dict, List
 from bson import Decimal128, ObjectId
 # from paco import map as paco_map
 
-from model.event import Event
-from config.clients import io_loop
+# from model.event import Event
+from model.odm import Event
+from utils.fastapi_app import app
 
 
 class RuleEvaluationError(Exception):
@@ -234,13 +235,16 @@ class RuleParser(object):
         data_list = arg[len(cls.DATA_PREFIX):].split("::")    # ['event', '456', 'latest_record', 'amount']
         assert len(data_list) in {3, 4}
         if len(data_list) == 3:
-            data_list.append(FetchStrategy.latest.value)
+            data_list.append(FetchStrategy.latest_record.value)
 
         coll_name, coll_id, fetch_strategy, metric = data_list
         fetch_strategy: FetchStrategy = FetchStrategy(fetch_strategy)
 
-        if coll_name == 'event':
-            event = await Event.get_by_id(_id=coll_id)
+        if coll_name == 'Event':
+            event = await app.state.engine.find_one(Event, Event.id == ObjectId(coll_id))
+            if not event:
+                raise Exception(f'{coll_name}.{coll_id} not found')
+            # event = await Event.get_by_id(_id=coll_id)
             fetch_strategy_fn = getattr(event, f"fetch_strategy_{fetch_strategy.value}")
             # to support different fetch_strategy, e.g latest_record or latest_N_record_avg
             metric_data = await fetch_strategy_fn(metric)  # no args
@@ -248,26 +252,26 @@ class RuleParser(object):
         else:
             raise Exception(f'unsupported coll {coll_name}')
 
-    async def _async_evaluate(self, rule):
-        """
-        递归执行list内容
-        """
-        async def _recurse_eval(arg):
-            if isinstance(arg, list):
-                return await self._evaluate(arg)
-            else:
-                """
-                ['or', ['>', "DATA::id::user_id", 2], ['and', ['in_', 1, 1, 2, 3], ['>', 3, ['int', '2']]]]
-                """
-                if isinstance(arg, str) and arg.startswith('DATA'):
-                    await self.get_data(arg)
-                return arg
-
-        r = list(paco_map(_recurse_eval, rule, loop=io_loop))
-        # print(f'rlist: {r}')
-        r[0] = Functions.ALIAS.get(r[0]) or r[0]
-        func = getattr(Functions, r[0])
-        return func(*r[1:])
+    # async def _async_evaluate(self, rule):
+    #     """
+    #     递归执行list内容
+    #     """
+    #     async def _recurse_eval(arg):
+    #         if isinstance(arg, list):
+    #             return await self._evaluate(arg)
+    #         else:
+    #             """
+    #             ['or', ['>', "DATA::id::user_id", 2], ['and', ['in_', 1, 1, 2, 3], ['>', 3, ['int', '2']]]]
+    #             """
+    #             if isinstance(arg, str) and arg.startswith('DATA'):
+    #                 await self.get_data(arg)
+    #             return arg
+    #
+    #     r = list(paco_map(_recurse_eval, rule, loop=io_loop))
+    #     # print(f'rlist: {r}')
+    #     r[0] = Functions.ALIAS.get(r[0]) or r[0]
+    #     func = getattr(Functions, r[0])
+    #     return func(*r[1:])
 
     def evaluate(self) -> bool:
         ret = self._evaluate(self.rule)
