@@ -1,20 +1,27 @@
 # __author__ = "Mio"
 # __email__: "liurusi.101@gmail.com"
 # created: 5/12/21 7:41 PM
+from aioredis import Redis
 from loguru import logger
-from typing import Optional, Union, Type, Dict, Any, List
+from typing import Optional, Union, Type, Dict, Any, List, Sequence
 
 from aiocache import cached
-from odmantic import Model, AIOEngine
+from motor.motor_asyncio import AsyncIOMotorClient
+from odmantic import Model, AIOEngine, ObjectId
 from odmantic.engine import ModelType
 from odmantic.query import QueryExpression
 from pydantic.utils import lenient_issubclass
 
-from config import SCHEMA_TTL
+from config import SCHEMA_TTL, CACHE_NAMESPACE
 from config.clients import pickle_serializer, redis_cache_no_self
 
 
 class YvoEngine(AIOEngine):
+    def __init__(self, motor_client: AsyncIOMotorClient = None, database: str = "test",
+                 a_redis_client: Redis = None):
+        super(YvoEngine, self).__init__(motor_client, database)
+        self.a_redis_client = a_redis_client
+
     @cached(ttl=SCHEMA_TTL, serializer=pickle_serializer, **redis_cache_no_self)
     async def find_one(
         self,
@@ -32,6 +39,29 @@ class YvoEngine(AIOEngine):
             return result.doc(include=return_doc_include)
         else:
             return result   # may be None
+
+    async def delete_cache(self, instance_id: Union[str, ObjectId]):
+        cur = b"0"  # set initial cursor to 0
+        while cur:
+            cur, keys = await self.a_redis_client.scan(cur, match=f"{CACHE_NAMESPACE}*{str(instance_id)}*")
+            logger.info(f'delete_cache:keys:{keys}')
+            if keys:
+                await self.a_redis_client.delete(*keys)
+
+    async def save(self, instance: ModelType) -> ModelType:
+        await self.delete_cache(instance.id)
+        instance = await super(YvoEngine, self).save(instance=instance)
+        return instance
+
+    async def save_all(self, instances: Sequence[ModelType]) -> List[ModelType]:
+        for ai in instances:
+            await self.delete_cache(ai.id)
+        added_instances = await super(YvoEngine, self).save_all(instances=instances)
+        return added_instances
+
+    async def delete(self, instance: ModelType) -> None:
+        await self.delete_cache(instance.id)
+        await super(YvoEngine, self).delete(instance=instance)
 
     async def gets(self,
                    model: Type[ModelType],

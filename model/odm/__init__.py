@@ -4,9 +4,11 @@
 import datetime
 from typing import List, Optional
 
+from loguru import logger
 from odmantic import Model, ObjectId, Reference, Field
 from pydantic import validator
 
+from AccessFastAPI.core.exceptions import RCSExcErrArg
 from utils.event_schema import EventSchema
 
 
@@ -26,7 +28,11 @@ class Event(Model):
     # noinspection PyMethodParameters
     @validator("rcs_schema")
     def check_rcs_schema(cls, v) -> dict:
-        EventSchema.parse(v)
+        try:
+            EventSchema.parse(v)
+        except Exception as e:
+            logger.debug(e)
+            raise RCSExcErrArg(content="EventSchema parse failed")
         return v
 
 

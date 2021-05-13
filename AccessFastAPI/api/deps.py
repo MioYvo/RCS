@@ -18,14 +18,6 @@ class Pagination(BaseModel):
     total_pages: int
 
 
-# !!! Error !!! cannot use in endpoints right now
-class EventsOut(BaseModel):
-    meta: Dict
-    error_code: Optional[int] = 0
-    message: Optional[str] = ""
-    content: Union[list, List[Event]]
-
-
 @dataclass
 class Page:
     total: int

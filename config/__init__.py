@@ -16,6 +16,7 @@ AccessExchangeType = ExchangeType(getenv('AccessExchangeType', 'direct'))
 DATA_PROCESSOR_ROUTING_KEY = getenv('DATA_PROCESSOR_ROUTING_KEY', 'DataProcessor')
 RULE_EXE_ROUTING_KEY = getenv('RULE_EXE_ROUTING_KEY', 'RuleEngineExe')
 RUN_PORT = int(getenv('RUN_PORT', '8081'))
+CACHE_NAMESPACE = getenv('CACHE_NAMESPACE', 'RCS')
 
 # DataProcessor
 PRE_FETCH_COUNT = int(getenv('PRE_FETCH_COUNT', 10))
@@ -84,6 +85,8 @@ REDIS_HOST = getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(getenv('REDIS_PORT', 6379))
 REDIS_DB = int(getenv('REDIS_DB', 1))
 REDIS_PASS = getenv('REDIS_PASS', None)
+REDIS_CONN_MIN = int(getenv('REDIS_CONN_MIN', 1))
+REDIS_CONN_MAX = int(getenv('REDIS_CONN_MAX', 5))
 assert REDIS_HOST
 
 
@@ -107,7 +110,6 @@ PIKA_URL = URL.build(
     user=PIKA_USER,
     password=PIKA_PASS
 )
-print(PIKA_URL)
 PIKA_MANAGEMENT_PORT = int(getenv('PIKA_MANAGEMENT_PORT', 15672))
 # pika_api = AdminAPI(url=f'http://{PIKA_HOST}:{PIKA_MANAGEMENT_PORT}', auth=(PIKA_USER, PIKA_PASS))
 # rabbit_api = Client(api_url=f'{PIKA_HOST}:{PIKA_MANAGEMENT_PORT}', user=PIKA_USER, passwd=PIKA_PASS)

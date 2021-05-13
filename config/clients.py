@@ -2,6 +2,7 @@ from asyncio import AbstractEventLoop, BaseEventLoop, get_event_loop
 from typing import Union
 
 # import tornado.ioloop
+import aioredis
 import uvloop
 from aiocache import Cache
 from aiocache.plugins import HitMissRatioPlugin
@@ -11,7 +12,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from redis import Redis
 
 from config import MONGO_URI, REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASS, PROJECT_NAME, MONGO_DB, \
-    MONGO_COLLECTION_EVENT, MONGO_COLLECTION_RECORD, MONGO_COLLECTION_RULE
+    MONGO_COLLECTION_EVENT, MONGO_COLLECTION_RECORD, MONGO_COLLECTION_RULE, CACHE_NAMESPACE
 from utils.logger import Logger
 
 uvloop.install()
@@ -61,19 +62,24 @@ redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, password=REDIS_PASS
 redis_cache_only_kwargs = dict(
     cache=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
     db=REDIS_DB, password=REDIS_PASS,
-    # namespace=PROJECT_NAME,
+    namespace=CACHE_NAMESPACE,
     key_builder=key_builder_only_kwargs,
     plugins=[HitMissRatioPlugin()]
 )
 redis_cache_no_self = dict(
     cache=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
     db=REDIS_DB, password=REDIS_PASS,
-    # namespace=PROJECT_NAME,
+    namespace=CACHE_NAMESPACE,
     # key_builder=key_builder_only_kwargs,
     noself=True,
     plugins=[HitMissRatioPlugin()]
 )
-print(redis_cache_only_kwargs)
+# print(redis_cache_only_kwargs)
+# aio redis, wait aioredis 2.0
+# a_redis_pool = aioredis.create_pool(address=f"redis://{REDIS_HOST}:{REDIS_PORT}",
+#                                     db=REDIS_DB, password=REDIS_PASS, maxsize=20)
+# a_redis = aioredis.Redis(a_redis_pool, )
+# cache
 string_serializer = StringSerializer()
 json_serializer = JsonSerializer()
 pickle_serializer = PickleSerializer()

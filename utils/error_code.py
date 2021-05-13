@@ -30,6 +30,8 @@ ERR_UNAUTHORIZED = 4011
 
 ERR_RATE_LIMIT = 4012
 
+ERR_DB_OPERATE_FAILED = 4013
+
 # =========================
 # 专用
 # =========================
