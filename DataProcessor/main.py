@@ -2,11 +2,10 @@ import logging
 import sys
 from pathlib import Path
 from loguru import logger
+sys.path.insert(0, str(Path().absolute().parent))
 
 from DataProcessor.processer.access import AccessConsumer
 from utils.mpika import make_consumer
-
-sys.path.insert(0, str(Path().absolute().parent))
 from config import PROJECT_NAME, DATA_PROCESSOR_QUEUE_NAME, RCSExchangeName, PRE_FETCH_COUNT
 from utils.fastapi_app import app
 from utils.logger import format_record, InterceptHandler

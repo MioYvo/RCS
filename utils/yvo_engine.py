@@ -22,6 +22,7 @@ class YvoEngine(AIOEngine):
         super(YvoEngine, self).__init__(motor_client, database)
         self.a_redis_client = a_redis_client
 
+    # TODO to make cache without pickle problems, may inherit AIOEngine.find and AIOCursor
     # @cached(ttl=SCHEMA_TTL, serializer=pickle_serializer, **redis_cache_no_self)
     async def find_one(
         self,

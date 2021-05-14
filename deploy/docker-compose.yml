@@ -1,0 +1,193 @@
+version: "3.3"
+services:
+  proxy:
+    image: traefik
+    networks:
+      - traefik-public
+      - default
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      # Enable Docker in Traefik, so that it reads labels from Docker services
+      - --providers.docker
+      # Add a constraint to only use services with the label for this stack
+      # from the env var TRAEFIK_TAG
+#      - --providers.docker.constraints=Label(`traefik.constraint-label-stack`, `${TRAEFIK_TAG?Variable not set}`)
+      # Do not expose all Docker services, only the ones explicitly exposed
+      - --providers.docker.exposedbydefault=false
+      # Enable Docker Swarm mode
+#      - --providers.docker.swarmmode
+      # Enable the access log, with HTTP requests
+#      - --accesslog
+      # Enable the Traefik log, for configurations and errors
+      - --log
+      # Enable the Dashboard and API
+      - --api
+#      - --api.dashboard=true
+      - --api.insecure=true
+#    deploy:
+#      placement:
+#        constraints:
+#          - node.role == manager
+    labels:
+      # Enable Traefik for this service, to make it available in the public network
+      - traefik.enable=true
+      # Use the traefik-public network (declared below)
+      - traefik.docker.network=traefik-public
+#      - traefik.http.routers.rcs-proxy-http.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
+      - traefik.http.routers.rcs-proxy-http.entrypoints=http
+      # Define the port inside of the Docker service to use
+      - traefik.http.services.rcs-proxy.loadbalancer.server.port=80
+    ports:
+    - "80:80"
+    - "8080:8080"
+
+  mongo:
+    image: mongo:latest
+    restart: always
+#    labels:
+#      - "com.centurylinklabs.watchtower.enable=false"
+    volumes:
+      - /data/RCS/mongo:/data/db
+    command: --wiredTigerCacheSizeGB 1.5
+    hostname: yvo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: 'RCSAccess'
+      MONGO_INITDB_ROOT_PASSWORD_FILE: '/run/secrets/mongo_pass'
+    ports:
+      - "27017:27017"
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "10"
+    secrets:
+      - mongo_pass
+
+  redis:
+    image: redis:alpine
+    restart: always
+    #    labels:
+    #      - "com.centurylinklabs.watchtower.enable=false"
+    volumes:
+      - /data/RCS/redis:/data  # RDB file
+#    ports:
+#      - 6379:6379
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "10"
+
+  rabbit:
+    image: rabbitmq:3-management-alpine
+    restart: always
+#    labels:
+#      - "com.centurylinklabs.watchtower.enable=false"
+    volumes:
+      - /data/RCS/rabbitmq:/var/lib/rabbitmq
+    hostname: yvo
+    environment:
+      RABBITMQ_DEFAULT_USER: 'RCSAccess'
+      RABBITMQ_DEFAULT_PASS_FILE: '/run/secrets/rabbit_pass'
+    ports:
+#      - "25670:5672"
+#      - "25671:15671"
+      - "25672:15672"
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "10"
+    secrets:
+      - rabbit_pass
+
+  ac:
+    build:
+      context: ../AccessFastAPI
+      dockerfile: Dockerfile
+    depends_on:
+      - mongo
+      - redis
+      - rabbit
+    environment:
+      PYTHONUNBUFFERED: 1
+      PIKA_HOST: rabbit
+      PIKA_PASS_FILE: /run/secrets/rabbit_pass
+      MONGO_HOST: mongo
+      MONGO_PASS_FILE: /run/secrets/mongo_pass
+      REDIS_HOST: redis
+      PROJECT_NAME: RCSAccess
+      ENABLE_DOC: 1
+      DOC_URL: localhost
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.rcs-backend-http.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`) || PathPrefix(`/openapi.json`)
+      - traefik.http.services.rcs-backend.loadbalancer.server.port=80
+    secrets:
+      - rabbit_pass
+      - mongo_pass
+
+  dp:
+    build:
+      context: ../DataProcessor
+      dockerfile: Dockerfile
+    depends_on:
+      - mongo
+      - redis
+      - rabbit
+    environment:
+      PYTHONUNBUFFERED: 1
+      PIKA_HOST: rabbit
+      PIKA_PASS_FILE: /run/secrets/rabbit_pass
+      MONGO_HOST: mongo
+      MONGO_PASS_FILE: /run/secrets/mongo_pass
+      REDIS_HOST: redis
+      PROJECT_NAME: DP
+    secrets:
+      - rabbit_pass
+      - mongo_pass
+
+  reg:
+    build:
+      context: ../RuleEngine
+      dockerfile: Dockerfile
+    depends_on:
+      - mongo
+      - redis
+      - rabbit
+    environment:
+      PYTHONUNBUFFERED: 1
+      PIKA_HOST: rabbit
+      PIKA_PASS_FILE: /run/secrets/rabbit_pass
+      MONGO_HOST: mongo
+      MONGO_PASS_FILE: /run/secrets/mongo_pass
+      REDIS_HOST: redis
+      PROJECT_NAME: REG
+    secrets:
+      - rabbit_pass
+      - mongo_pass
+
+#  frontend:
+#    image: '${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}'
+#    build:
+#      context: ./frontend
+#      args:
+#        FRONTEND_ENV: ${FRONTEND_ENV-production}
+#    deploy:
+#      labels:
+#        - traefik.enable=true
+#        - traefik.constraint-label-stack=${TRAEFIK_TAG?Variable not set}
+#        - traefik.http.routers.rcs-frontend-http.rule=PathPrefix(`/`)
+#        - traefik.http.services.rcs-frontend.loadbalancer.server.port=80
+
+
+networks:
+  traefik-public:
+    # Allow setting it to false for testing
+#    external: ${TRAEFIK_PUBLIC_NETWORK_IS_EXTERNAL-true}
+#  default:
+#    external: true
+
+secrets:
+  rabbit_pass:
+    file: /etc/RCS/rabbit_pass
+  mongo_pass:
+    file: /etc/RCS/mongo_pass
