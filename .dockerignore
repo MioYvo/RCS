@@ -140,3 +140,12 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
+
+dist
+*.egg/
+*.pyc
+*.swp
+
+.tox
+.coverage
+**/*__pycache__/

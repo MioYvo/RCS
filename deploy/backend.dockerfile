@@ -4,9 +4,9 @@ ENV TZ='Asia/Shanghai'
 #ENV PYTHONPATH=/app
 #ENV POETRY_CACHE_DIR=/tmp/poetry_cache
 
-WORKDIR /app/
 
 COPY deploy/requirements.txt /app/
+WORKDIR /app/
 
 RUN yum update -y && \
     yum install -y yum-utils && \
@@ -25,7 +25,11 @@ RUN yum update -y && \
     rm -rf /var/cache/yum && \
     find . | grep -E "(__pycache__|\.pyc|\.pyo$)" | xargs rm -rf
 
-COPY . /app/
+#COPY model/ utils/ config/ /app/./
+COPY model /app/model
+COPY utils /app/utils
+COPY config /app/config
+
 
 #EXPOSE 80
 #CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port 9000", "--loop", "uvloop"]

@@ -1,5 +1,6 @@
-FROM registry.cn-hangzhou.aliyuncs.com/mio101/rcs_base:v0.0.1
+FROM mio101/rcs:base-v0.0.1
 
+COPY . /app/RuleEngine/
 WORKDIR /app/RuleEngine
 
 EXPOSE 80
