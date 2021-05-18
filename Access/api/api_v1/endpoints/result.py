@@ -1,6 +1,6 @@
 # __author__ = "Mio"
 # __email__: "liurusi.101@gmail.com"
-# created: 5/14/21 2:19 AM
+# created: 5/18/21 6:41 PM
 from datetime import datetime
 from decimal import Decimal
 from typing import Union, List, Optional
@@ -13,7 +13,7 @@ from odmantic.field import FieldProxy
 from odmantic.query import SortExpression
 
 from Access.api.deps import Page, YvoJSONResponse
-from model.odm import Record, Event, User
+from model.odm import Result, Event, User
 from config import RCSExchangeName, DATA_PROCESSOR_ROUTING_KEY
 from utils.fastapi_app import app
 from utils.amqp_publisher import publisher
@@ -23,36 +23,39 @@ from utils.exceptions import RCSExcErrArg, RCSExcNotFound
 router = APIRouter()
 
 
-class RecordsOut(BaseModel):
+class ResultsOut(BaseModel):
     meta: dict
-    content: Union[list, List[Record]]
+    content: Union[list, List[Result]]
 
     class Config:
         json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
 
 
-class RecordIn(BaseModel):
+class ResultIn(BaseModel):
     event: ObjectId
     event_at: Optional[datetime] = PDField(default_factory=datetime.utcnow)
     event_data: dict
     user: User
 
 
-class RecordOut(BaseModel):
+class ResultOut(BaseModel):
     effect_published: bool
 
 
-@router.put("/record/", response_model=RecordOut, status_code=HTTP_201_CREATED)
-async def create_or_update_record(record_in: RecordIn):
-    event: Optional[Event] = await app.state.engine.find_one(Event, Event.id == record_in.event)
+
+
+
+@router.put("/result/", response_model=ResultOut, status_code=HTTP_201_CREATED)
+async def create_or_update_result(result_in: ResultIn):
+    event: Optional[Event] = await app.state.engine.find_one(Event, Event.id == result_in.event)
     if not event:
-        raise RCSExcNotFound(entity_id=str(record_in.event))
+        raise RCSExcNotFound(entity_id=str(result_in.event))
     # validate event
-    validate_rst, validate_info = event.validate_schema(event.rcs_schema, record_in.event_data)
+    validate_rst, validate_info = event.validate_schema(event.rcs_schema, result_in.event_data)
     if not validate_rst:
         raise RCSExcErrArg(content=validate_info)
 
-    sending_data = record_in.dict()
+    sending_data = result_in.dict()
     sending_data['event'] = event.dict()
     sending_data['event_data'] = validate_info
 
@@ -61,17 +64,17 @@ async def create_or_update_record(record_in: RecordIn):
         message=sending_data, exchange_name=RCSExchangeName,
         routing_key=DATA_PROCESSOR_ROUTING_KEY, timestamp=datetime.utcnow(),
     )
-    return RecordOut(effect_published=tf)
+    return ResultOut(effect_published=tf)
 
 
-@router.get("/record/")
-async def get_records(
+@router.get("/result/")
+async def get_results(
         page: int = Query(default=1, ge=1),
         per_page: int = Query(default=20, ge=1),
-        sort: str = Query(default='event_at', description='must be attribute of Record model'),
+        sort: str = Query(default='event_at', description='must be attribute of Result model'),
         desc: bool = True, event_name: str = ""):
 
-    _sort: FieldProxy = getattr(Record, sort, None)
+    _sort: FieldProxy = getattr(Result, sort, None)
     if not _sort:
         raise RCSExcErrArg(content=dict(sort=sort))
     sort: SortExpression = _sort.desc() if desc else _sort.asc()
@@ -84,31 +87,31 @@ async def get_records(
         # noinspection PyUnresolvedReferences
         events = await app.state.engine.gets(Event, Event.name.match(event_name))
         # noinspection PyUnresolvedReferences
-        queries.append(Record.event.in_([e.id for e in events]))
+        queries.append(Result.event.in_([e.id for e in events]))
         # !!! filter across references is not supported
-        # queries.append(Record.event.name.match(name))
+        # queries.append(Result.event.name.match(name))
     # count to calculate total_page
-    total_count = await app.state.engine.count(Record, *queries)
-    records = await app.state.engine.gets(
-        Record, *queries, sort=sort, skip=skip, limit=limit, return_doc=False)
-    p = Page(total=total_count, page=page, per_page=per_page, count=len(records))
+    total_count = await app.state.engine.count(Result, *queries)
+    results = await app.state.engine.gets(
+        Result, *queries, sort=sort, skip=skip, limit=limit, return_doc=False)
+    p = Page(total=total_count, page=page, per_page=per_page, count=len(results))
     return YvoJSONResponse(
-        dict(content=[i.dict() for i in records], meta=p.meta_pagination()),
+        dict(content=[i.dict() for i in results], meta=p.meta_pagination()),
     )
 
 
-@router.get("/record/{record_id}", response_model=Record)
-async def get_record(record_id: ObjectId):
-    record = await app.state.engine.find_one(Record, Record.id == record_id)
-    if not record:
-        raise RCSExcNotFound(entity_id=str(record_id))
-    return YvoJSONResponse(record.dict())
+@router.get("/result/{result_id}", response_model=Result)
+async def get_result(result_id: ObjectId):
+    result = await app.state.engine.find_one(Result, Result.id == result_id)
+    if not result:
+        raise RCSExcNotFound(entity_id=str(result_id))
+    return YvoJSONResponse(result.dict())
 
 
-@router.delete("/record/{record_id}")
-async def delete_record(record_id: ObjectId):
-    record = await app.state.engine.find_one(Record, Record.id == record_id)
-    if not record:
-        raise RCSExcNotFound(entity_id=str(record_id))
-    await app.state.engine.delete(record)
-    return YvoJSONResponse(record.dict())
+@router.delete("/result/{result_id}")
+async def delete_result(result_id: ObjectId):
+    result = await app.state.engine.find_one(Result, Result.id == result_id)
+    if not result:
+        raise RCSExcNotFound(entity_id=str(result_id))
+    await app.state.engine.delete(result)
+    return YvoJSONResponse(result.dict())

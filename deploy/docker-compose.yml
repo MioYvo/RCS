@@ -89,7 +89,7 @@ services:
       RABBITMQ_DEFAULT_USER: 'RCSAccess'
       RABBITMQ_DEFAULT_PASS_FILE: '/run/secrets/rabbit_pass'
     ports:
-#      - "25670:5672"
+      - "5672:5672"
 #      - "25671:15671"
       - "25672:15672"
     logging:

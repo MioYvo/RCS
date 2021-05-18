@@ -20,6 +20,8 @@ odmantic = "^0.3.5"
 schema = "^0.7.4"
 redis = "^3.5.3"
 loguru = "^0.5.3"
+snowland-smx = "^0.3.1"
+python-multipart = "^0.0.5"
 
 [tool.poetry.dev-dependencies]
 #mypy = "^0.770"

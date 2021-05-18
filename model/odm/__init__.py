@@ -2,10 +2,11 @@
 # __email__: "liurusi.101@gmail.com"
 # created: 5/12/21 6:27 PM
 import datetime
+from enum import Enum
 from typing import List, Optional
 
 from loguru import logger
-from odmantic import Model, ObjectId, Reference, Field
+from odmantic import Model, ObjectId, Reference, Field, EmbeddedModel
 from pydantic import validator
 
 from utils.exceptions import RCSExcErrArg
@@ -39,11 +40,11 @@ class Event(Model):
     @classmethod
     def validate_schema(cls, schema: dict, json: dict):
         try:
-            EventSchema.validate(schema, json)
+            rst = EventSchema.validate(schema, json)
         except Exception as e:
             return False, str(e)
         else:
-            return True, ''
+            return True, rst
 
     async def fetch_strategy_latest_record(self, metric: str):
         from utils.fastapi_app import app
@@ -61,11 +62,30 @@ class Event(Model):
             raise Exception('metric func not implemented')
 
 
+class Project(str, Enum):
+    VDEX = "vdex"
+    VTOKEN = "vtoken"
+    PAYDEX = "paydex"
+
+
+class User(EmbeddedModel):
+    user_id: str
+    project: Project
+
+
 class Record(Model):
     event: Event = Reference()
     event_data: dict
+    user: User
     event_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+
+    def reformat_event_data(self):
+        rst, i = self.event.validate_schema(self.event.rcs_schema, self.event_data)
+        if rst:
+            self.event_data = i
+        else:
+            raise Exception(f'{+Record} reformat_event_data failed')
 
 
 class Rule(Model):
@@ -73,3 +93,42 @@ class Rule(Model):
     name: str = Field(max_length=25)
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+
+
+class HandlerRole(str, Enum):
+    ADMIN = "admin"
+    CUSTOMER_SERVICE = "customer_service"
+
+
+class Handler(Model):
+    name: str
+    role: HandlerRole
+    encrypted_password: str
+    token: str
+    update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+    create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+
+
+class Result(Model):
+    rule: Rule = Reference()        # reference to event
+    record: Record = Reference()
+    processed: bool = False
+    update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+    create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+
+
+class Action(str, Enum):
+    BLOCK_USER = 'BLOCK_USER'
+    BAN_USER_LOGIN = "BAN_USER_LOGIN"
+    REFUSE_OPERATION = "REFUSE_OPERATION"
+
+
+class Punishment(Model):
+    results: List[ObjectId]
+    action: str = Field(..., max_length=20)
+    details: dict = dict()
+    memo: str = Field('', max_length=20)
+    handler: Handler = Reference()
+    update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+    create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+

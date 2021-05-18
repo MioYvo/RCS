@@ -11,11 +11,13 @@ from loguru import logger
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.operations import IndexModel
 
 from utils.exceptions import RCSException
 from utils.yvo_engine import YvoEngine
 from config import PROJECT_NAME, MONGO_URI, MONGO_DB, PIKA_URL, RCSExchangeName, AccessExchangeType, REDIS_DB, \
-    REDIS_PASS, REDIS_CONN_MIN, REDIS_CONN_MAX, REDIS_HOST, REDIS_PORT, DOCS_URL, REDOC_URL, OPENAPI_URL, ENABLE_DOC
+    REDIS_PASS, REDIS_CONN_MIN, REDIS_CONN_MAX, REDIS_HOST, REDIS_PORT, DOCS_URL, REDOC_URL, OPENAPI_URL, ENABLE_DOC, \
+    CREATE_INDEX
 from utils.error_code import ERR_DB_OPERATE_FAILED
 
 if not ENABLE_DOC:
@@ -84,6 +86,23 @@ async def startup_event():
     mongo_si = await app.state.engine.client.server_info()  # si: server_info
     logger.info(f'mongo:server_info version:{mongo_si["version"]} ok:{mongo_si["ok"]}')
     logger.info('mongo: connected')
+    if CREATE_INDEX:
+        from model.odm import Handler, Event, Rule
+        logger.info('mongo indexes: creating ...')
+        indexes = {
+            Handler: [IndexModel('name', unique=True, name='name_1')],
+            Event: [IndexModel('name', unique=True, name='name_1')],
+            Rule: [IndexModel('name', unique=True, name='name_1')],
+        }
+
+        for _model, indexes in indexes.items():
+            for index in indexes:
+                try:
+                    logger.info(f'mongo indexes: creating {+_model}:{index.document}')
+                    await app.state.engine.get_collection(_model).create_indexes([index])
+                except Exception as e:
+                    logger.error(e)
+        logger.info('mongo indexes: created')
 
 
 @app.on_event("shutdown")

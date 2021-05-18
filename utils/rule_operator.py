@@ -144,6 +144,7 @@ class FetchStrategy(Enum):
 
 class RuleParser(object):
     DATA_PREFIX = "DATA::"
+    REPLACE_PREFIX = "REPL::"
 
     def __init__(self, rule: Union[str, list], data: Optional[dict] = None):
         if isinstance(rule, str):
@@ -188,38 +189,40 @@ class RuleParser(object):
             else:
                 return arg
 
-        r = list(map(_recurse_eval, rule))
+        r: list = list(map(_recurse_eval, rule))
         # print(f'rlist: {r}')
         r[0] = Functions.ALIAS.get(r[0]) or r[0]
         func = getattr(Functions, r[0])
         return func(*r[1:])
 
-    # @classmethod
-    # async def render_rule(cls, rule):
-    #     async def _render_rule(rule_arg: Union[str, list]):
-    #         if isinstance(rule_arg, list):
-    #             return await cls.render_rule(rule_arg)
-    #         else:
-    #             if isinstance(rule_arg, str) and rule_arg.startswith(cls.DATA_PREFIX):
-    #                 return await cls.get_data(rule_arg)
-    #             else:
-    #                 return rule_arg
-    #
-    #     # noinspection PyUnresolvedReferences
-    #     args = await paco_map(_render_rule, rule, loop=io_loop)
-    #     return args
-
     @classmethod
-    async def render_rule(cls, rule):
+    async def render_rule(cls, rule, data):
         # print(rule)
         for i, rl in enumerate(rule):
             if isinstance(rl, list):
-                rule[i] = await cls.render_rule(rl)
+                rule[i] = await cls.render_rule(rl, data)
             elif isinstance(rl, str) and rl.startswith(cls.DATA_PREFIX):
                 rule[i] = await cls.get_data(rl)
+            elif isinstance(rl, str) and rl.startswith(cls.REPLACE_PREFIX):
+                rule[i] = cls.replace_data(rl, data)
             else:
                 pass
         return rule
+
+    @classmethod
+    def replace_data(cls, arg: str, data):
+        """
+        replace schema arg with data
+        :param arg: "REPL::key1::key1key1::..."
+        :param data: {{"key1": {"key1key1": 123}, "key2": 321}}
+
+        One record refers to many rules, and one rule contains many records, they are many2many relationship.
+        Maybe this func will never be triggered.
+        """
+        arg_list = arg[len(cls.REPLACE_PREFIX):].split("::")
+        for key in arg_list:
+            data = data.get(key)
+        return data
 
     @classmethod
     async def get_data(cls, arg: str):

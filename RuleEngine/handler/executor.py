@@ -5,8 +5,10 @@ import json
 from typing import Optional
 
 from aio_pika import IncomingMessage
-from schema import Schema, And, SchemaError
+from schema import Schema, SchemaError, Use
 
+from model.odm import Record, Rule, Result
+from utils.fastapi_app import app
 from utils.rule_operator import RuleParser
 from config import RULE_EXE_ROUTING_KEY
 from utils.amqp_consumer import AmqpConsumer
@@ -49,28 +51,35 @@ class RuleExecutorConsumer(AmqpConsumer):
         data = await self.validate_message(message=message)
         if not data:
             return await self.ack(message)
+        else:
+            record: Record = data['record']
+            record.reformat_event_data()
+            rule: Rule = data['rule']
 
-        self.logger.info(trigger_by=data['trigger_by'])
-        for rule in data["rules"]:
-            try:
-                _rule_schema = await RuleParser.render_rule(rule['rule'])
-            except Exception as e:
-                self.logger.exceptions(e, where='render_rule')
+        self.logger.info(trigger_by=data['record'])
+        try:
+            _rule_schema = await RuleParser.render_rule(rule.rule, record.event_data)
+            if RuleParser.evaluate_rule(_rule_schema):
+                # matched rule
+                self.logger.info('RuleMatched', rule_id=rule.id, rule_name=rule.name)
+                result = Result(rule=rule, record=record, processed=False)
+                await app.state.engine.save(result)
             else:
-                if RuleParser.evaluate_rule(_rule_schema):
-                    # match this rule
-                    self.logger.info('RuleMatched', rule_id=rule['id'], rule_name=rule['name'])
-                else:
-                    # NOT match
-                    pass
-        await self.ack(message)
+                pass
+        except Exception as e:
+            self.logger.exceptions(e, where='render_rule')
+            await self.reject(message, requeue=False)
+        else:
+            pass
+        finally:
+            await self.ack(message)
 
     async def validate_message(self, message) -> Optional[dict]:
         try:
             data = json.loads(message.body)
             _data = Schema({
-                "trigger_by": dict,
-                "rules": And(list, lambda x: len(x) > 0),
+                "record": Use(Record.parse_obj),
+                "rule": Use(Rule.parse_obj),
             }).validate(data)
         except SchemaError as e:
             self.logger.error(e)

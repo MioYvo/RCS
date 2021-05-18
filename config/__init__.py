@@ -21,6 +21,7 @@ DOCS_URL = getenv('DOCS_URL', '/docs')
 OPENAPI_URL = getenv('OPENAPI_URL', '/openapi.json')
 REDOC_URL = getenv('REDOC_URL', '/redoc')
 ENABLE_DOC = bool(int(getenv('ENABLE_DOC', 0)))
+CREATE_INDEX = bool(int(getenv('CREATE_INDEX', 1)))
 
 # DataProcessor
 PRE_FETCH_COUNT = int(getenv('PRE_FETCH_COUNT', 10))
