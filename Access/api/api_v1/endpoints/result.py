@@ -43,7 +43,7 @@ class ResultOut(BaseModel):
 async def get_results(
         page: int = Query(default=1, ge=1),
         per_page: int = Query(default=20, ge=1),
-        sort: str = Query(default='event_at', description='must be attribute of Result model'),
+        sort: str = Query(default='create_at', description='must be attribute of Result model'),
         desc: bool = True, event_name: str = ""):
 
     _sort: FieldProxy = getattr(Result, sort, None)

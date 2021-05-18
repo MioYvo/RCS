@@ -2,6 +2,7 @@
 # __email__: "liurusi.101@gmail.com"
 # created: 3/31/21 4:54 AM
 import json
+from copy import deepcopy
 from typing import Optional
 
 from aio_pika import IncomingMessage
@@ -55,10 +56,11 @@ class RuleExecutorConsumer(AmqpConsumer):
             record: Record = data['record']
             record.reformat_event_data()
             rule: Rule = data['rule']
+            rule_schema = rule.dict()['rule']
 
         self.logger.info(trigger_by=data['record'])
         try:
-            _rule_schema = await RuleParser.render_rule(rule.rule, record.event_data)
+            _rule_schema = await RuleParser.render_rule(rule_schema, record.event_data)
             if RuleParser.evaluate_rule(_rule_schema):
                 # matched rule
                 self.logger.info('RuleMatched', rule_id=rule.id, rule_name=rule.name)
