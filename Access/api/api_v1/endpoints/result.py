@@ -13,11 +13,8 @@ from odmantic.field import FieldProxy
 from odmantic.query import SortExpression
 
 from Access.api.deps import Page, YvoJSONResponse
-from model.odm import Result, Event, User
-from config import RCSExchangeName, DATA_PROCESSOR_ROUTING_KEY
+from model.odm import Result, Event, User, Record
 from utils.fastapi_app import app
-from utils.amqp_publisher import publisher
-from utils.http_code import HTTP_201_CREATED
 from utils.exceptions import RCSExcErrArg, RCSExcNotFound
 
 router = APIRouter()
@@ -42,31 +39,6 @@ class ResultOut(BaseModel):
     effect_published: bool
 
 
-
-
-
-@router.put("/result/", response_model=ResultOut, status_code=HTTP_201_CREATED)
-async def create_or_update_result(result_in: ResultIn):
-    event: Optional[Event] = await app.state.engine.find_one(Event, Event.id == result_in.event)
-    if not event:
-        raise RCSExcNotFound(entity_id=str(result_in.event))
-    # validate event
-    validate_rst, validate_info = event.validate_schema(event.rcs_schema, result_in.event_data)
-    if not validate_rst:
-        raise RCSExcErrArg(content=validate_info)
-
-    sending_data = result_in.dict()
-    sending_data['event'] = event.dict()
-    sending_data['event_data'] = validate_info
-
-    tf, rst, sent_msg = await publisher(
-        conn=app.state.amqp_connection,
-        message=sending_data, exchange_name=RCSExchangeName,
-        routing_key=DATA_PROCESSOR_ROUTING_KEY, timestamp=datetime.utcnow(),
-    )
-    return ResultOut(effect_published=tf)
-
-
 @router.get("/result/")
 async def get_results(
         page: int = Query(default=1, ge=1),
@@ -86,8 +58,9 @@ async def get_results(
     if event_name:
         # noinspection PyUnresolvedReferences
         events = await app.state.engine.gets(Event, Event.name.match(event_name))
+        records = await app.state.engine.gets(Record, Record.event.in_(events))
         # noinspection PyUnresolvedReferences
-        queries.append(Result.event.in_([e.id for e in events]))
+        queries.append(Result.record.in_([r.id for r in records]))
         # !!! filter across references is not supported
         # queries.append(Result.event.name.match(name))
     # count to calculate total_page
