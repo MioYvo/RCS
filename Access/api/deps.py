@@ -97,13 +97,13 @@ async def get_current_username_admin(handler: Handler = Depends(get_current_user
     return handler
 
 
-@app.get("/users/me", tags=['User'])
+@app.get("/api/users/me", tags=['User'])
 def read_current_user(handler: Handler = Depends(get_current_username)):
     return {"username": handler.name, "role": handler.role.value,
             'token': handler.token, "create_at": handler.create_at}
 
 
-@app.post("/users/login", tags=['User'])
+@app.post("/api/users/login", tags=['User'])
 async def login(username: str = Form(...),
                 password: str = Form(..., description='must encoded with b64')):
     handler: Handler = await app.state.engine.find_one(Handler, Handler.name == username)
@@ -122,7 +122,7 @@ async def login(username: str = Form(...),
         raise HTTPException(status_code=HTTP_403_FORBIDDEN, detail="Wrong credentials")
 
 
-@app.post("/users/reset_password", tags=['User'])
+@app.post("/api/users/reset_password", tags=['User'])
 async def reset_password(password: str = Form(..., description='must encoded with b64'),
                          handler: Handler = Depends(get_current_username)):
     handler.encrypted_password = hash_msg(password)
@@ -133,7 +133,7 @@ async def reset_password(password: str = Form(..., description='must encoded wit
             'token': handler.token, "create_at": handler.create_at}
 
 
-@app.post("/users/", tags=['Admin'],
+@app.post("/api/users/", tags=['Admin'],
           dependencies=[Depends(get_current_username_admin)],
           description='Create new user')
 async def create_user(username: str = Form(...),

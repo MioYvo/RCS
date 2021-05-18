@@ -3,7 +3,8 @@ import sys
 from pathlib import Path
 from loguru import logger
 sys.path.insert(0, str(Path().absolute().parent))
-from config import PROJECT_NAME, RULE_EXE_QUEUE_NAME, RCSExchangeName, PRE_FETCH_COUNT
+from config import PROJECT_NAME, RULE_EXE_QUEUE_NAME, RCSExchangeName, PRE_FETCH_COUNT, LOG_FILE_PATH, LOG_FILENAME, \
+    LOG_FILE_RETENTION, LOG_FILE_ROTATION
 from utils.fastapi_app import app
 from utils.logger import format_record, InterceptHandler
 logging.getLogger().handlers = [InterceptHandler()]
@@ -13,6 +14,8 @@ logger.configure(
 logging.getLogger("uvicorn.access").handlers = [InterceptHandler()]
 # logging.getLogger("uvicorn.error").handlers = [InterceptHandler()]
 # logging.getLogger("uvicorn").handlers = [InterceptHandler()]
+logger.add(Path(LOG_FILE_PATH) / LOG_FILENAME, retention=LOG_FILE_RETENTION, rotation=LOG_FILE_ROTATION)
+
 from RuleEngine.handler.executor import RuleExecutorConsumer
 from utils.mpika import make_consumer
 

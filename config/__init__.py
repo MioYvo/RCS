@@ -22,6 +22,10 @@ OPENAPI_URL = getenv('OPENAPI_URL', '/openapi.json')
 REDOC_URL = getenv('REDOC_URL', '/redoc')
 ENABLE_DOC = bool(int(getenv('ENABLE_DOC', 0)))
 CREATE_INDEX = bool(int(getenv('CREATE_INDEX', 0)))
+LOG_FILE_PATH = getenv('LOG_FILE_PATH', '/app/log/')
+LOG_FILENAME = getenv('LOG_FILENAME', f"{PROJECT_NAME}.log")
+LOG_FILE_RETENTION = getenv('LOG_FILE_RETENTION', '7 days')
+LOG_FILE_ROTATION = getenv('LOG_FILE_ROTATION', '1 day')
 
 # DataProcessor
 PRE_FETCH_COUNT = int(getenv('PRE_FETCH_COUNT', 10))

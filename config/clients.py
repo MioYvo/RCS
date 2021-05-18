@@ -2,7 +2,6 @@ from asyncio import AbstractEventLoop, BaseEventLoop, get_event_loop
 from typing import Union
 
 # import tornado.ioloop
-import aioredis
 import uvloop
 from aiocache import Cache
 from aiocache.plugins import HitMissRatioPlugin
