@@ -2,6 +2,7 @@
 # __email__: "liurusi.101@gmail.com"
 # created: 5/12/21 11:42 PM
 import os
+import socket
 
 import aioredis
 import pymongo.errors
@@ -57,7 +58,12 @@ async def startup_event():
     logger.info('rabbitMQ: connecting ...')
     app.state.amqp_connection = await connect_robust(
         url=PIKA_URL,
-        client_properties={'client_properties': {'connection_name': f"{PROJECT_NAME}-{os.getpid()}"}})
+        client_properties={
+            'client_properties': {
+                'connection_name': f"{PROJECT_NAME}-{socket.gethostname()}-{os.getpid()}"
+            }
+        }
+    )
     logger.info('rabbitMQ: connected')
     logger.info('rabbitMQ: making queues ...')
     await make_queues(amqp_connection=app.state.amqp_connection)

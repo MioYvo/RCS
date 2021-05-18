@@ -6,7 +6,7 @@ ENV TZ='Asia/Shanghai'
 
 WORKDIR /app/
 
-COPY deploy/fastapi/requirements.txt /app/
+COPY deploy/requirements.txt /app/
 
 RUN yum update -y && \
     yum install -y yum-utils && \

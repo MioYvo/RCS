@@ -10,11 +10,12 @@ from odmantic.bson import BSON_TYPES_ENCODERS
 from odmantic.field import FieldProxy
 from odmantic.query import SortExpression
 
-from utils.fastapi_app import app
-from AccessFastAPI.api.deps import Page
-from utils.exceptions import RCSExcErrArg, RCSExcNotFound
 from model.odm import Event
+from Access.api.deps import Page
+from utils.fastapi_app import app
 from utils.http_code import HTTP_201_CREATED
+from utils.exceptions import RCSExcErrArg, RCSExcNotFound
+
 
 router = APIRouter()
 

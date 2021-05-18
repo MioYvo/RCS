@@ -7,13 +7,13 @@ from odmantic import ObjectId
 from odmantic.field import FieldProxy
 from odmantic.query import SortExpression
 
-from utils.rule_operator import RuleParser
+from Access.api.deps import Page, YvoJSONResponse, RuleE
+from model.odm import Rule, Event
 from model.mapping import COLL_MAPPING
 from utils.fastapi_app import app
-from AccessFastAPI.api.deps import Page, YvoJSONResponse, RuleE
-from utils.exceptions import RCSExcErrArg, RCSExcNotFound
-from model.odm import Rule, Event
+from utils.rule_operator import RuleParser
 from utils.http_code import HTTP_201_CREATED
+from utils.exceptions import RCSExcErrArg, RCSExcNotFound
 
 router = APIRouter()
 

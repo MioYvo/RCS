@@ -12,13 +12,13 @@ from odmantic.bson import BSON_TYPES_ENCODERS
 from odmantic.field import FieldProxy
 from odmantic.query import SortExpression
 
-from utils.fastapi_app import app
-from AccessFastAPI.api.deps import Page, YvoJSONResponse
-from utils.exceptions import RCSExcErrArg, RCSExcNotFound
-from config import RCSExchangeName, DATA_PROCESSOR_ROUTING_KEY
+from Access.api.deps import Page, YvoJSONResponse
 from model.odm import Record, Event
+from config import RCSExchangeName, DATA_PROCESSOR_ROUTING_KEY
+from utils.fastapi_app import app
 from utils.amqp_publisher import publisher
 from utils.http_code import HTTP_201_CREATED
+from utils.exceptions import RCSExcErrArg, RCSExcNotFound
 
 router = APIRouter()
 

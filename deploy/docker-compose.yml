@@ -70,8 +70,8 @@ services:
     #      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
       - /data/RCS/redis:/data  # RDB file
-#    ports:
-#      - 6379:6379
+    ports:
+      - 6379:6379
     logging:
       options:
         max-size: "10m"
@@ -100,8 +100,9 @@ services:
       - rabbit_pass
 
   ac:
+    scale: 3
     build:
-      context: ../AccessFastAPI
+      context: ../Access
       dockerfile: Dockerfile
     depends_on:
       - mongo
@@ -114,9 +115,10 @@ services:
       MONGO_HOST: mongo
       MONGO_PASS_FILE: /run/secrets/mongo_pass
       REDIS_HOST: redis
-      PROJECT_NAME: RCSAccess
+      PROJECT_NAME: AC
       ENABLE_DOC: 1
       DOC_URL: localhost
+      WEB_CONCURRENCY: 2
     labels:
       - traefik.enable=true
       - traefik.http.routers.rcs-backend-http.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`) || PathPrefix(`/openapi.json`)
@@ -126,6 +128,7 @@ services:
       - mongo_pass
 
   dp:
+    scale: 2
     build:
       context: ../DataProcessor
       dockerfile: Dockerfile
@@ -141,11 +144,13 @@ services:
       MONGO_PASS_FILE: /run/secrets/mongo_pass
       REDIS_HOST: redis
       PROJECT_NAME: DP
+      WEB_CONCURRENCY: 2
     secrets:
       - rabbit_pass
       - mongo_pass
 
   reg:
+    scale: 2
     build:
       context: ../RuleEngine
       dockerfile: Dockerfile
@@ -161,6 +166,7 @@ services:
       MONGO_PASS_FILE: /run/secrets/mongo_pass
       REDIS_HOST: redis
       PROJECT_NAME: REG
+      WEB_CONCURRENCY: 2
     secrets:
       - rabbit_pass
       - mongo_pass

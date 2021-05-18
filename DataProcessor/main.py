@@ -40,10 +40,6 @@ async def shutdown_event():
             await channel.close()
 
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    pass
-
 if __name__ == "__main__":
     import uvicorn
     logger.info(f"{PROJECT_NAME} starting")

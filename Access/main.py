@@ -15,8 +15,9 @@ logger.configure(
 logging.getLogger("uvicorn.access").handlers = [InterceptHandler()]
 # logging.getLogger("uvicorn.error").handlers = [InterceptHandler()]
 # logging.getLogger("uvicorn").handlers = [InterceptHandler()]
+logging.getLogger("uvicorn.asgi").handlers = [InterceptHandler()]
 
-from AccessFastAPI.api.api_v1.api import api_router
+from Access.api.api_v1.api import api_router
 app.docs_url = None
 app.add_middleware(
     CORSMiddleware,
@@ -31,4 +32,4 @@ app.include_router(api_router, prefix="/api/v1")
 if __name__ == "__main__":
     import uvicorn
     logger.info(f"{PROJECT_NAME} starting")
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000)
