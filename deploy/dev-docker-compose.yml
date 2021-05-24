@@ -54,8 +54,8 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: 'RCSAccess'
       MONGO_INITDB_ROOT_PASSWORD_FILE: '/run/secrets/mongo_pass'
-#    ports:
-#      - "27017:27017"
+    ports:
+      - "27077:27017"
     logging:
       options:
         max-size: "10m"
@@ -70,8 +70,8 @@ services:
     #      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
       - /data/RCS/redis:/data  # RDB file
-#    ports:
-#      - 6379:6379
+    ports:
+      - 6379:6379
     logging:
       options:
         max-size: "10m"
@@ -88,10 +88,10 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: 'RCSAccess'
       RABBITMQ_DEFAULT_PASS_FILE: '/run/secrets/rabbit_pass'
-#    ports:
+    ports:
 #      - "5672:5672"
 #      - "25671:15671"
-#      - "25672:15672"
+      - "25672:15672"
     logging:
       options:
         max-size: "10m"
@@ -101,10 +101,10 @@ services:
 
   ac:
     scale: 3
-    image: registry.cn-hangzhou.aliyuncs.com/mio101/rcs:ac-v0.0.1
-#    build:
-#      context: ../Access
-#      dockerfile: ../Access/Dockerfile
+#    image: registry.cn-hangzhou.aliyuncs.com/mio101/rcs:ac-v0.0.1
+    build:
+      context: ../Access
+      dockerfile: ../Access/Dockerfile
     depends_on:
       - mongo
       - redis
@@ -131,10 +131,10 @@ services:
 
   dp:
     scale: 2
-    image: registry.cn-hangzhou.aliyuncs.com/mio101/rcs:dp-v.0.0.1
-#    build:
-#      context: ../DataProcessor
-#      dockerfile: Dockerfile
+#    image: registry.cn-hangzhou.aliyuncs.com/mio101/rcs:dp-v.0.0.1
+    build:
+      context: ../DataProcessor
+      dockerfile: Dockerfile
     depends_on:
       - mongo
       - redis
@@ -154,10 +154,10 @@ services:
 
   reg:
     scale: 2
-    image: registry.cn-hangzhou.aliyuncs.com/mio101/rcs:reg-v0.0.1
-#    build:
-#      context: ../RuleEngine
-#      dockerfile: Dockerfile
+#    image: registry.cn-hangzhou.aliyuncs.com/mio101/rcs:reg-v0.0.1
+    build:
+      context: ../RuleEngine
+      dockerfile: Dockerfile
     depends_on:
       - mongo
       - redis

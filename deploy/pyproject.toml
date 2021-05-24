@@ -1,14 +1,13 @@
 [tool.poetry]
-name = "Access"
+name = "RCS"
 version = "0.0.1"
-description = "Access for RCS."
+description = "Risk control system"
 authors = ["mio <liurusi.101@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.8.6"
 uvicorn = {extras = ["standard"], version = "^0.13.4"}
 fastapi = "^0.65.0"
-tenacity = "^6.1.0"
 pydantic = "^1.4"
 aio-pika = "^6.8.0"
 aiocache = {extras = ["redis"], version = "^0.11.1"}
