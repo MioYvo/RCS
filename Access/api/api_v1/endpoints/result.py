@@ -13,7 +13,7 @@ from odmantic.field import FieldProxy
 from odmantic.query import SortExpression
 
 from Access.api.deps import Page, YvoJSONResponse
-from model.odm import Result, Event, User, Record
+from model.odm import Result, User, Record
 from utils.fastapi_app import app
 from utils.exceptions import RCSExcErrArg, RCSExcNotFound
 
@@ -44,7 +44,7 @@ async def get_results(
         page: int = Query(default=1, ge=1),
         per_page: int = Query(default=20, ge=1),
         sort: str = Query(default='create_at', description='must be attribute of Result model'),
-        desc: bool = True, event_name: str = ""):
+        desc: bool = True, rule_name: str = ""):
 
     _sort: FieldProxy = getattr(Result, sort, None)
     if not _sort:
@@ -55,10 +55,10 @@ async def get_results(
     limit = per_page
     # build queries:
     queries = []
-    if event_name:
+    if rule_name:
         # noinspection PyUnresolvedReferences
-        events = await app.state.engine.gets(Event, Event.name.match(event_name))
-        records = await app.state.engine.gets(Record, Record.event.in_(events))
+        rules = await app.state.engine.gets(Rule, Rule.name.match(event_name))
+        records = await app.state.engine.gets(Record, Record.event.in_(rules))
         # noinspection PyUnresolvedReferences
         queries.append(Result.record.in_([r.id for r in records]))
         # !!! filter across references is not supported

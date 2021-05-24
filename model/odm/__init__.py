@@ -88,9 +88,29 @@ class Record(Model):
             raise Exception(f'{+Record} reformat_event_data failed')
 
 
+class ControlType(str, Enum):
+    BEFOREHAND = "beforehand"
+    AFTERWARDS = "afterwards"
+    IN_MATTER = "in_matter"
+
+
+class ExecuteType(str, Enum):
+    MANUAL = "manual"
+    AUTOMATIC = "automatic"
+
+
+class Status(str, Enum):
+    ON = "on"
+    OFF = "off"
+
+
 class Rule(Model):
     rule: list
     name: str = Field(max_length=25)
+    project: Project
+    control_type: ControlType = Field(default=ControlType.AFTERWARDS)
+    execute_type: ExecuteType = Field(default=ExecuteType.MANUAL)
+    status: Status = Field(default=Status.OFF)
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
 
