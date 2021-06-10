@@ -5,6 +5,7 @@ import json
 import logging
 from collections import defaultdict
 from enum import Enum
+from functools import reduce
 from typing import Union, Optional, Dict, List
 
 from bson import Decimal128, ObjectId
@@ -120,17 +121,19 @@ class Functions(object):
     @classmethod
     def minus(cls, *args):
         args = cls.convert_type(args)
-        return args[0] - args[1]
+        # return args[0] - sum(args[1:])
+        return reduce(lambda x, y: x - y, args)
 
     @classmethod
     def multiply(cls, *args):
         args = cls.convert_type(args)
-        return args[0] * args[1]
+        return reduce(lambda x, y: x * y, args)
 
     @classmethod
     def divide(cls, *args):
         args = cls.convert_type(args)
-        return float(args[0]) / float(args[1])
+        return reduce(lambda x, y: x / y, args)
+        # return float(args[0]) / float(args[1])
 
     @classmethod
     def abs(cls, *args):
