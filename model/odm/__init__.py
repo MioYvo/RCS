@@ -152,3 +152,69 @@ class Punishment(Model):
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
 
+
+# class Category(str, Enum):
+#     registering = "registering"
+#     sign_in = "sign_in"
+#     crowdfunding = "crowdfunding"
+#     mining_pool = "mining_pool"
+#     financial_management = "financial_management"
+#     recharge = "recharge"
+#     withdraw = "withdraw"
+#     currency_transaction = "currency_transaction"   # 币币交易
+#     transfer = "transfer"
+#     transaction_password = "transaction_password"
+
+
+class Scene(Model):
+    name: str = Field(max_length=25)
+    events: List[ObjectId]
+    category: str
+    scene_schema: dict
+    create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+    update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+
+    # noinspection PyMethodParameters
+    @validator("scene_schema")
+    def check_scene_schema(cls, v) -> dict:
+        try:
+            EventSchema.parse(v)
+        except Exception as e:
+            logger.exception(e)
+            raise RCSExcErrArg(content="SceneSchema parse failed")
+        return v
+
+    @classmethod
+    def validate_schema(cls, schema: dict, json: dict):
+        try:
+            rst = EventSchema.validate(schema, json)
+        except Exception as e:
+            return False, str(e)
+        else:
+            return True, rst
+
+    async def fetch_strategy_latest_record(self, metric: str):
+        from utils.fastapi_app import app
+        # noinspection PyUnresolvedReferences
+        records = await app.state.engine.gets(Record, Record.event == self.id,
+                                              sort=Record.create_at.desc(), limit=1)
+        # record = await Record.get_latest_by_event_id(event_id=self.id)
+        if records:
+            record = records[0]
+        else:
+            raise Exception('record not found')
+        if record.event_data.get(metric) is not None:
+            return record.event_data[metric]
+        else:
+            raise Exception('metric func not implemented')
+
+
+class AggData(Model):
+    scene: Scene = Reference()
+    user: User
+    agg_data: dict
+
+
+class SceneCategory(Model):
+    name: str
+    desc: str

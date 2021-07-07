@@ -2,6 +2,7 @@
 # __email__: "liurusi.101@gmail.com"
 # created: 3/30/21 7:50 PM
 from copy import deepcopy
+from datetime import timedelta
 from functools import partial
 
 from bson import Decimal128
@@ -29,6 +30,18 @@ class EventSchema:
         return And(Use(str), Use(Decimal128))
 
     @classmethod
+    def type_str(cls):
+        return Use(str)
+
+    @classmethod
+    def type_enum(cls, enum: list):
+        return And(lambda x: x in enum)
+
+    @classmethod
+    def type_seconds(cls):
+        return Use(lambda x: timedelta(seconds=x))
+
+    @classmethod
     def parse(cls, schema: dict, ignore_extra_keys=False) -> Schema:
         """
         parse schema[str] to PythonSchema object
@@ -36,6 +49,19 @@ class EventSchema:
             {
                 "user_id": {
                     "type": "int",
+                },
+                "order_from": {
+                    "type": "str",
+                    "desc": "转出地址"
+                },
+                "project": {
+                    "type" : "enum",
+                    "enum": ["PAYDEX", "VDEX", "VTOKEN"]
+                    "desc": "方向"
+                },
+                "unit_of_time": {
+                   "type": "seconds",
+                   "desc": "单位时间"
                 },
                 "dt": {
                     "type": "datetime",
@@ -55,6 +81,7 @@ class EventSchema:
         _schema = {}
         for k, v in __schema.items():
             _type = v.pop('type')
+            _desc = v.pop('desc', None)
             fn = getattr(cls, f'type_{_type}')
             _schema[k] = fn(**v)
         return Schema(_schema, ignore_extra_keys=ignore_extra_keys)

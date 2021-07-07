@@ -55,7 +55,7 @@ services:
       MONGO_INITDB_ROOT_USERNAME: 'RCSAccess'
       MONGO_INITDB_ROOT_PASSWORD_FILE: '/run/secrets/mongo_pass'
     ports:
-      - "27017:27017"
+      - "27077:27017"
     logging:
       options:
         max-size: "10m"
