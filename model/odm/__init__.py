@@ -3,11 +3,12 @@
 # created: 5/12/21 6:27 PM
 import datetime
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from loguru import logger
 from odmantic import Model, ObjectId, Reference, Field, EmbeddedModel
 from pydantic import validator
+from pymongo import IndexModel
 
 from utils.exceptions import RCSExcErrArg
 from utils.event_schema import EventSchema
@@ -27,14 +28,18 @@ class Event(Model):
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
 
+    @classmethod
+    def index_(cls):
+        return [IndexModel('name', unique=True, name='idx_name_1')]
+
     # noinspection PyMethodParameters
     @validator("rcs_schema")
     def check_rcs_schema(cls, v) -> dict:
         try:
             EventSchema.parse(v)
         except Exception as e:
-            logger.debug(e)
-            raise RCSExcErrArg(content="EventSchema parse failed")
+            logger.error(e)
+            raise RCSExcErrArg(content=f"EventSchema parse failed {e}")
         return v
 
     @classmethod
@@ -114,6 +119,10 @@ class Rule(Model):
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
 
+    @classmethod
+    def index_(cls):
+        return [IndexModel('name', unique=True, name='idx_name_1')]
+
 
 class HandlerRole(str, Enum):
     ADMIN = "admin"
@@ -127,6 +136,10 @@ class Handler(Model):
     token: str
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+
+    @classmethod
+    def index_(cls):
+        return [IndexModel('name', unique=True, name='idx_name_1')]
 
 
 class Result(Model):
@@ -215,6 +228,7 @@ class AggData(Model):
     agg_data: dict
 
 
-class SceneCategory(Model):
-    name: str
-    desc: str
+class Config(Model):
+    name: str = Field(primary_field=True)
+    data: Union[List[Union[dict, str]], dict]
+    update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)

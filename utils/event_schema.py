@@ -14,6 +14,14 @@ from utils.gtz import Dt, local_timezone
 
 class EventSchema:
     @classmethod
+    def type_coin_name(cls):
+        # !!! cannot use async func here, wait new approach
+        # from utils.fastapi_app import app
+        # from model.odm import CoinName
+        # coin_names = {doc['name'] for doc in await app.state.engine.gets(CoinName)}
+        return Use(str)
+
+    @classmethod
     def type_int(cls):
         return Use(int)
 
@@ -47,6 +55,9 @@ class EventSchema:
         parse schema[str] to PythonSchema object
         :type schema: dict
             {
+                "coin_name": {
+                    "type": "coin_name"
+                },
                 "user_id": {
                     "type": "int",
                 },

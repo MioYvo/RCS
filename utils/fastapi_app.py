@@ -88,18 +88,18 @@ async def startup_event():
     logger.info('mongo: connected')
     if CREATE_INDEX:
         from model.odm import Handler, Event, Rule
-        logger.info('mongo indexes: creating ...')
+        logger.info('mongo indexes: creating ... (if data exists)')
         indexes = {
-            Handler: [IndexModel('name', unique=True, name='name_1')],
-            Event: [IndexModel('name', unique=True, name='name_1')],
-            Rule: [IndexModel('name', unique=True, name='name_1')],
+            _model: _model.index_()
+            for _model in [Handler, Event, Rule]
         }
 
         for _model, indexes in indexes.items():
             for index in indexes:
                 try:
                     logger.info(f'mongo indexes: creating {+_model}:{index.document}')
-                    await app.state.engine.get_collection(_model).create_indexes([index])
+                    rst = await app.state.engine.get_collection(_model).create_indexes([index])
+                    logger.info(f'mongo index {rst}')
                 except Exception as e:
                     logger.error(e)
         logger.info('mongo indexes: created')

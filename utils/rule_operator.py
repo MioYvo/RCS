@@ -38,7 +38,8 @@ class Functions(object):
         '+': 'plus',
         '-': 'minus',
         '*': 'multiply',
-        '/': 'divide'
+        '/': 'divide',
+        'sce': 'scene'
     }
 
     @classmethod
@@ -140,6 +141,11 @@ class Functions(object):
         args = cls.convert_type(args)
         return abs(args[0])
 
+    @classmethod
+    def scene(cls, scene_id: str, *fields):
+        pass
+
+
 
 class FetchStrategy(Enum):
     latest_record = 'latest_record'
@@ -181,22 +187,6 @@ class RuleParser(object):
         for k, v in coll_mapping.items():
             coll_mapping[k] = list(v)
         return coll_mapping
-
-    def _evaluate(self, rule):
-        """
-        递归执行list内容
-        """
-        def _recurse_eval(arg):
-            if isinstance(arg, list):
-                return self._evaluate(arg)
-            else:
-                return arg
-
-        r: list = list(map(_recurse_eval, rule))
-        # print(f'rlist: {r}')
-        r[0] = Functions.ALIAS.get(r[0]) or r[0]
-        func = getattr(Functions, r[0])
-        return func(*r[1:])
 
     @classmethod
     async def render_rule(cls, rule, data):
@@ -258,32 +248,27 @@ class RuleParser(object):
         else:
             raise Exception(f'unsupported coll {coll_name}')
 
-    # async def _async_evaluate(self, rule):
-    #     """
-    #     递归执行list内容
-    #     """
-    #     async def _recurse_eval(arg):
-    #         if isinstance(arg, list):
-    #             return await self._evaluate(arg)
-    #         else:
-    #             """
-    #             ['or', ['>', "DATA::id::user_id", 2], ['and', ['in_', 1, 1, 2, 3], ['>', 3, ['int', '2']]]]
-    #             """
-    #             if isinstance(arg, str) and arg.startswith('DATA'):
-    #                 await self.get_data(arg)
-    #             return arg
-    #
-    #     r = list(paco_map(_recurse_eval, rule, loop=io_loop))
-    #     # print(f'rlist: {r}')
-    #     r[0] = Functions.ALIAS.get(r[0]) or r[0]
-    #     func = getattr(Functions, r[0])
-    #     return func(*r[1:])
+    def _evaluate(self, rule):
+        """
+        递归执行list内容
+        """
+        def _recurse_eval(arg):
+            if isinstance(arg, list):
+                return self._evaluate(arg)
+            else:
+                return arg
+
+        r: list = list(map(_recurse_eval, rule))
+        # print(f'rlist: {r}')
+        func_name = Functions.ALIAS.get(r[0]) or r[0]
+        func = getattr(Functions, func_name)
+        return func(*r[1:])
 
     def evaluate(self) -> bool:
         ret = self._evaluate(self.rule)
         if not isinstance(ret, bool):
             logging.warning('In common usage, a rule must return a bool value,'
-                            'but get {}, please check the rule to ensure it is true')
+                            f'but get {ret}, please check the rule to ensure it is true')
         return ret
 
     @classmethod
@@ -312,5 +297,5 @@ if __name__ == '__main__':
     # rendered_rule = io_loop.run_until_complete(RuleParser.render_rule(ru))
     # print(rendered_rule)
     # print(RuleParser.evaluate_rule(rendered_rule))
-
+    RuleParser.render_rule(ru, [])
     print('coll_info', RuleParser.coll_info(ru))

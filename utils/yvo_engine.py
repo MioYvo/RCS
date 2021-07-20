@@ -22,6 +22,10 @@ class YvoEngine(AIOEngine):
         super(YvoEngine, self).__init__(motor_client, database)
         self.a_redis_client = a_redis_client
 
+    @staticmethod
+    def build_cache_key(instance):
+        return f"{instance.__collection__}:{getattr(instance, instance.__primary_field__)}"
+
     # TODO to make cache without pickle problems, may inherit AIOEngine.find and AIOCursor
     # @cached(ttl=SCHEMA_TTL, serializer=pickle_serializer, **redis_cache_no_self)
     async def find_one(
@@ -41,27 +45,28 @@ class YvoEngine(AIOEngine):
         else:
             return result   # may be None
 
-    async def delete_cache(self, instance_id: Union[str, ObjectId]):
+    async def delete_cache(self, instance: ModelType):
+        key = self.build_cache_key(instance)
         cur = b"0"  # set initial cursor to 0
         while cur:
-            cur, keys = await self.a_redis_client.scan(cur, match=f"{CACHE_NAMESPACE}*{str(instance_id)}*")
+            cur, keys = await self.a_redis_client.scan(cur, match=f"{CACHE_NAMESPACE}*{str(key)}*")
             logger.info(f'delete_cache:keys:{keys}')
             if keys:
                 await self.a_redis_client.delete(*keys)
 
     async def save(self, instance: ModelType) -> ModelType:
-        await self.delete_cache(instance.id)
+        await self.delete_cache(instance)
         instance = await super(YvoEngine, self).save(instance=instance)
         return instance
 
     async def save_all(self, instances: Sequence[ModelType]) -> List[ModelType]:
         for ai in instances:
-            await self.delete_cache(ai.id)
+            await self.delete_cache(ai)
         added_instances = await super(YvoEngine, self).save_all(instances=instances)
         return added_instances
 
     async def delete(self, instance: ModelType) -> None:
-        await self.delete_cache(instance.id)
+        await self.delete_cache(instance)
         await super(YvoEngine, self).delete(instance=instance)
 
     async def gets(self,
@@ -95,6 +100,6 @@ class YvoEngine(AIOEngine):
         pipeline.extend(AIOEngine._cascade_find_pipeline(model))
         motor_cursor = collection.aggregate(pipeline)
         return [await self.find_one(
-            model, model.id == doc['_id'],
+            model, getattr(model, model.__primary_field__) == doc['_id'],
             return_doc=return_doc, return_doc_include=return_doc_include
         ) async for doc in motor_cursor]
