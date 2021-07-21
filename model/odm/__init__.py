@@ -67,15 +67,9 @@ class Event(Model):
             raise Exception('metric func not implemented')
 
 
-class Project(str, Enum):
-    VDEX = "vdex"
-    VTOKEN = "vtoken"
-    PAYDEX = "paydex"
-
-
 class User(EmbeddedModel):
     user_id: str
-    project: Project
+    project: str
 
 
 class Record(Model):
@@ -93,17 +87,6 @@ class Record(Model):
             raise Exception(f'{+Record} reformat_event_data failed')
 
 
-class ControlType(str, Enum):
-    BEFOREHAND = "beforehand"
-    AFTERWARDS = "afterwards"
-    IN_MATTER = "in_matter"
-
-
-class ExecuteType(str, Enum):
-    MANUAL = "manual"
-    AUTOMATIC = "automatic"
-
-
 class Status(str, Enum):
     ON = "on"
     OFF = "off"
@@ -112,9 +95,9 @@ class Status(str, Enum):
 class Rule(Model):
     rule: list
     name: str = Field(max_length=25)
-    project: Project
-    control_type: ControlType = Field(default=ControlType.AFTERWARDS)
-    execute_type: ExecuteType = Field(default=ExecuteType.MANUAL)
+    project: str
+    control_type: str
+    execute_type: str
     status: Status = Field(default=Status.OFF)
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
@@ -123,10 +106,16 @@ class Rule(Model):
     def index_(cls):
         return [IndexModel('name', unique=True, name='idx_name_1')]
 
+    @validator('rule', check_fields=False)
+    def check_rule(cls, v):
+        from utils.rule_operator import RuleParser
+        RuleParser.validate(v)
+        return v
+
 
 class HandlerRole(str, Enum):
     ADMIN = "admin"
-    CUSTOMER_SERVICE = "customer_service"
+    CUSTOMER_SERVICE = "customer_service"       # 客服
 
 
 class Handler(Model):
@@ -180,12 +169,18 @@ class Punishment(Model):
 
 
 class Scene(Model):
-    name: str = Field(max_length=25)
-    events: List[ObjectId]
+    name: str = Field(max_length=128)
+    desc: str = Field(max_length=128)
+    events: List[ObjectId] = Field(default_factory=list)
+    rules: List[ObjectId] = Field(default_factory=list)
     category: str
     scene_schema: dict
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+
+    @classmethod
+    def index_(cls):
+        return [IndexModel('name', unique=True, name='idx_name_1')]
 
     # noinspection PyMethodParameters
     @validator("scene_schema")

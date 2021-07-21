@@ -66,13 +66,6 @@ class YvoJSONResponse(Response):
         ).encode("utf-8")
 
 
-class RuleE(Rule):
-    @validator('rule', check_fields=False)
-    def check_rule(cls, v):
-        RuleParser.validate(v)
-        return v
-
-
 security = HTTPBearer()
 
 

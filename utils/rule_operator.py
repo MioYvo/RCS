@@ -6,14 +6,15 @@ import logging
 from collections import defaultdict
 from enum import Enum
 from functools import reduce
-from typing import Union, Optional, Dict, List
+from typing import Union, Optional, Dict, List, Set
 
 from bson import Decimal128, ObjectId
 # from paco import map as paco_map
 
 # from model.event import Event
-from model.odm import Event
+from model.odm import Event, Scene
 from utils.fastapi_app import app
+from utils.yvo_engine import YvoEngine
 
 
 class RuleEvaluationError(Exception):
@@ -143,8 +144,20 @@ class Functions(object):
 
     @classmethod
     def scene(cls, scene_id: str, *fields):
-        pass
-
+        """
+        Scene operator.
+        :param scene_id: TODO maybe Scene.name
+        :param fields:
+        :return:
+        """
+        # app.state.engine: YvoEngine
+        # scene = await app.state.engine.find_one(Scene, Scene.id == ObjectId(scene_id))
+        # if not scene:
+        #     # TODO custom Exceptions
+        #     raise Exception(f'Scene {scene_id} not found')
+        #
+        print(scene_id)
+        print(fields)
 
 
 class FetchStrategy(Enum):
@@ -184,9 +197,22 @@ class RuleParser(object):
         coll_mapping = defaultdict(set)
         __coll_info(rule, coll_mapping)
         coll_mapping = dict(coll_mapping)
-        for k, v in coll_mapping.items():
-            coll_mapping[k] = list(v)
+        # for k, v in coll_mapping.items():
+        #     coll_mapping[k] = list(v)
         return coll_mapping
+
+    @classmethod
+    def scene_info(cls, rule: list) -> Set[ObjectId]:
+        _oid_set = set()
+
+        def _scan(_rule: list, _oid_set: set):
+            for rl in _rule:
+                if isinstance(rl, list):
+                    if rl and len(rl) > 2 and rl[0] in {'scene', 'scene'}:
+                        _oid_set.add(rl[1])
+                    _scan(rl, _oid_set)
+        _scan(rule, _oid_set)
+        return _oid_set
 
     @classmethod
     async def render_rule(cls, rule, data):
