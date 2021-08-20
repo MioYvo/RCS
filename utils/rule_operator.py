@@ -6,15 +6,14 @@ import logging
 from collections import defaultdict
 from enum import Enum
 from functools import reduce
-from typing import Union, Optional, Dict, List, Set
+from typing import Union, Optional, Dict, Set
 
 from bson import Decimal128, ObjectId
-# from paco import map as paco_map
 
-# from model.event import Event
+from SceneScript import scene_scripts
 from model.odm import Event, Scene
+from utils import Operator
 from utils.fastapi_app import app
-from utils.yvo_engine import YvoEngine
 
 
 class RuleEvaluationError(Exception):
@@ -143,10 +142,10 @@ class Functions(object):
         return abs(args[0])
 
     @classmethod
-    def scene(cls, scene_id: str, *fields):
+    def scene(cls, scene_name: str, *fields):
         """
         Scene operator.
-        :param scene_id: TODO maybe Scene.name
+        :param scene_name:
         :param fields:
         :return:
         """
@@ -156,7 +155,7 @@ class Functions(object):
         #     # TODO custom Exceptions
         #     raise Exception(f'Scene {scene_id} not found')
         #
-        print(scene_id)
+        print(scene_name)
         print(fields)
 
 
@@ -167,6 +166,7 @@ class FetchStrategy(Enum):
 class RuleParser(object):
     DATA_PREFIX = "DATA::"
     REPLACE_PREFIX = "REPL::"
+    SCENE_PREFIX = "SCENE::"
 
     def __init__(self, rule: Union[str, list], data: Optional[dict] = None):
         if isinstance(rule, str):
@@ -185,7 +185,7 @@ class RuleParser(object):
             raise RuleEvaluationError('Must have at least one argument.')
 
     @classmethod
-    def coll_info(cls, rule: list) -> Dict[str, List[ObjectId]]:
+    def coll_info(cls, rule: list) -> Dict[str, Set[ObjectId]]:
         # TODO prevent cycle trigger executor
         def __coll_info(rl, _coll_mapping: Dict[str, set]):
             for rll in rl:
@@ -208,25 +208,74 @@ class RuleParser(object):
         def _scan(_rule: list, _oid_set: set):
             for rl in _rule:
                 if isinstance(rl, list):
-                    if rl and len(rl) > 2 and rl[0] in {'scene', 'scene'}:
+                    if rl and len(rl) > 2 and isinstance(rl[0], str) and rl[0].upper() == cls.SCENE_PREFIX:
                         _oid_set.add(rl[1])
                     _scan(rl, _oid_set)
         _scan(rule, _oid_set)
         return _oid_set
 
     @classmethod
-    async def render_rule(cls, rule, data):
+    async def render_rule(cls, rule: list, event_data: dict):
         # print(rule)
         for i, rl in enumerate(rule):
             if isinstance(rl, list):
-                rule[i] = await cls.render_rule(rl, data)
-            elif isinstance(rl, str) and rl.startswith(cls.DATA_PREFIX):
-                rule[i] = await cls.get_data(rl)
-            elif isinstance(rl, str) and rl.startswith(cls.REPLACE_PREFIX):
-                rule[i] = cls.replace_data(rl, data)
+                if rl and isinstance(rl[0], str) and \
+                        (rl[0].upper() == cls.SCENE_PREFIX or rl[0].upper() == cls.SCENE_PREFIX[:-2]):
+                    rule[i] = await cls._render_scene(rl, event_data)
+                else:
+                    rule[i] = await cls.render_rule(rl, event_data)
+            elif isinstance(rl, str):
+                if rl.startswith(cls.DATA_PREFIX):
+                    rule[i] = await cls.get_data(rl)
+                elif rl.startswith(cls.REPLACE_PREFIX):
+                    rule[i] = cls.replace_data(rl, event_data)
+                else:
+                    pass
             else:
                 pass
         return rule
+
+    @classmethod
+    async def _render_scene(cls, scene_rule: list, event_data: dict) -> bool:
+        """
+        render scene rule
+        :param scene_rule: list, rule of scene
+            [
+                "scene",
+                "single_withdrawal_amount_limit",
+                [">", "Scene::amount", new NumberInt("10")],
+                ["=", "Scene::coin_name", "USDT-TRC20"]
+            ]
+        :param event_data: dict, data of event
+            {
+                "coin_name": "ETH", "project": "VDEX", "user_id": "user-uuid-abc-def",
+                "order_from": "address-of-order-from",
+                "order_to": "address-of-order-to",
+                "amount": Decimal("123.123"),
+                "dt": datetime.datetime(2021, 8, 20, 19, 40, 32, 419144)
+            }
+        :return:
+        """
+        assert len(scene_rule) >= 3
+
+        scene = await app.state.engine.find_one(Scene, Scene.name == scene_rule[1])
+        kwargs = dict()
+        for rl in scene_rule[2:]:
+            if not isinstance(rl, list):
+                continue
+            if not len(rl) >= 3:
+                continue
+            # rl: ["=", "Scene::coin_name", "USDT-TRC20"]
+            func_name = Functions.ALIAS.get(rl[0]) or rl[0]
+            func = getattr(Functions, func_name)
+            if not func:
+                continue
+            arg_name = rl[1].upper().split(cls.SCENE_PREFIX)[1].lower()
+            data = rl[2]
+            kwargs[arg_name] = Operator(arg_name, func, data)
+        scene_script = scene_scripts[scene.name]
+        rendered_rule: bool = await scene_script(event_data, kwargs)
+        return rendered_rule
 
     @classmethod
     def replace_data(cls, arg: str, data):
@@ -285,7 +334,7 @@ class RuleParser(object):
                 return arg
 
         r: list = list(map(_recurse_eval, rule))
-        # print(f'rlist: {r}')
+        print(f'rlist: {r}')
         func_name = Functions.ALIAS.get(r[0]) or r[0]
         func = getattr(Functions, func_name)
         return func(*r[1:])
@@ -308,20 +357,22 @@ if __name__ == '__main__':
     # ru = ['or', ['>', 1, 2], ['and', ['in_', 1, 1, 2, 3], ['>', 3, ['int', '2']]]]
     ru = ['or',
           ['>', 1, 2],
-          ['and',
-           ['in_', 1, 1, 2, 3],
-           ['>', 100, ['int', '2']]]
+            [
+              'and',
+              ['in_', 1, 1, 2, 3],
+              ['>', 100, ['int', '2']],
+              False
+            ],
           ]
     print(RuleParser.evaluate_rule(ru))
 
     ru = ['or',
           ['>', 1, 2],
           ['and',
-           ['in_', 1, 1, "DATA::event::60637cd71b57484ca719135e::latest_record::user_id", 3],
+           ['in_', 1, 1, "DATA::Event::60637cd71b57484ca719135e::latest_record::user_id", 3],
            ['>', "DATA::event::60637cd71b57484ca719135e::latest_record::amount", ['int', '2']]]
           ]
     # rendered_rule = io_loop.run_until_complete(RuleParser.render_rule(ru))
     # print(rendered_rule)
     # print(RuleParser.evaluate_rule(rendered_rule))
-    RuleParser.render_rule(ru, [])
     print('coll_info', RuleParser.coll_info(ru))

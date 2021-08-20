@@ -32,7 +32,7 @@ class RecordsOut(BaseModel):
 
 
 class RecordIn(BaseModel):
-    event: ObjectId
+    event_name: str
     event_at: Optional[datetime] = PDField(default_factory=datetime.utcnow)
     event_data: dict
     user: User
@@ -44,9 +44,9 @@ class RecordOut(BaseModel):
 
 @router.put("/record/", response_model=RecordOut, status_code=HTTP_201_CREATED)
 async def create_or_update_record(record_in: RecordIn):
-    event: Optional[Event] = await app.state.engine.find_one(Event, Event.id == record_in.event)
+    event: Optional[Event] = await app.state.engine.find_one(Event, Event.name == record_in.event_name)
     if not event:
-        raise RCSExcNotFound(entity_id=str(record_in.event))
+        raise RCSExcNotFound(entity_id=str(record_in.event_name))
     # validate event
     validate_rst, validate_info = event.validate_schema(event.rcs_schema, record_in.event_data)
     if not validate_rst:

@@ -3,6 +3,7 @@
 # created: 5/12/21 6:27 PM
 import datetime
 from enum import Enum
+from functools import reduce
 from typing import List, Optional, Union
 
 from loguru import logger
@@ -79,12 +80,22 @@ class Record(Model):
     event_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
 
+    @classmethod
+    def index_(cls):
+        return [IndexModel('name', unique=True, name='idx_name_1')]
+
     def reformat_event_data(self):
         rst, i = self.event.validate_schema(self.event.rcs_schema, self.event_data)
         if rst:
             self.event_data = i
         else:
             raise Exception(f'{+Record} reformat_event_data failed')
+
+    async def rules(self) -> set:
+        rules = self.event.rules
+        from utils.fastapi_app import app
+        scene_rules = reduce(lambda a, b: a + b, [scene.rules for scene in await app.state.engine.gets(Scene, Scene.events.in_([self.event.id]))])
+        return set(rules) | set(scene_rules)
 
 
 class Status(str, Enum):

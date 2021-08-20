@@ -1,6 +1,7 @@
 # __author__ = "Mio"
 # __email__: "liurusi.101@gmail.com"
 # created: 5/12/21 6:57 PM
+import logging
 from typing import Union, List
 
 from pydantic import BaseModel
@@ -74,6 +75,7 @@ async def get_events(
         queries.append(Event.name.match(name))
     # count to calculate total_page
     total_count = await app.state.engine.count(Event, *queries)
+    logging.info(total_count)
     events = await app.state.engine.gets(Event, *queries, sort=sort, skip=skip, limit=limit,
                                          return_doc=False)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(events))

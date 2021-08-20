@@ -11,7 +11,6 @@ from loguru import logger
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
-from pymongo.operations import IndexModel
 
 from utils.exceptions import RCSException
 from utils.yvo_engine import YvoEngine

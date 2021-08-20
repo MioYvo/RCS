@@ -12,6 +12,7 @@ from utils.event_schema import EventSchema
 from utils.gtz import Dt
 from utils.logger import Logger
 from utils.fastapi_app import app
+from utils.rule_operator import RuleParser
 
 
 class AccessConsumer(AmqpConsumer):
@@ -88,20 +89,24 @@ class AccessConsumer(AmqpConsumer):
         :param record:
         :return:
         """
-        rules = record.event.rules
-        rules_set = set(rules)
-        if len(rules) != len(rules_set):
-            await self.update_rules(rules_set, event=record.event)
-        for rule in rules_set:
+        rules = await record.rules()
+        if len(rules) != len(rules):
+            await self.update_rules(rules, event=record.event)
+        for rule in rules:
             rule: Rule
             # may Replace rule's schema with record data here
             rule = await app.state.engine.find_one(Rule, Rule.id == rule)
             if not rule:
                 logger.error(f'DP: Rule not found: {rule}')
                 continue
+            # record.reformat_event_data()
+            rule_schema = rule.rule
+            _rule_schema = await RuleParser.render_rule(rule_schema, record.event_data)
+
             data = {
                 "record": record.dict(),
-                "rule": rule.dict()
+                "rule": rule.dict(),
+                "rule_schema": _rule_schema
             }
             tf, rst, sent_msg = await publisher(
                 conn=self.amqp_connection,

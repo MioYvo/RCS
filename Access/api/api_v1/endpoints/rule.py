@@ -40,6 +40,7 @@ async def create_or_update_rule(rule: Rule):
                 _instances[coll].append(doc_obj)
 
     scenes = RuleParser.scene_info(rule.rule)
+    # check scene
     for scene_name in scenes:
         scene = await app.state.engine.find_one(Scene, Scene.name == scene_name)
         if not scene:

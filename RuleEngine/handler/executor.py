@@ -2,6 +2,7 @@
 # __email__: "liurusi.101@gmail.com"
 # created: 3/31/21 4:54 AM
 import json
+import logging
 from copy import deepcopy
 from typing import Optional
 
@@ -54,20 +55,18 @@ class RuleExecutorConsumer(AmqpConsumer):
             return await self.ack(message)
         else:
             record: Record = data['record']
-            record.reformat_event_data()
             rule: Rule = data['rule']
-            rule_schema = rule.dict()['rule']
+            rule_schema: list = data['rule_schema']
 
-        self.logger.info(trigger_by=data['record'])
+        self.logger.info(trigger_by=record)
         try:
-            _rule_schema = await RuleParser.render_rule(rule_schema, record.event_data)
-            if RuleParser.evaluate_rule(_rule_schema):
+            if RuleParser.evaluate_rule(rule_schema):
                 # matched rule
                 self.logger.info('RuleMatched', rule_id=rule.id, rule_name=rule.name)
                 result = Result(rule=rule, record=record, processed=False)
                 await app.state.engine.save(result)
             else:
-                pass
+                self.logger.info('RuleNotMatch', rule_id=rule.id, rule_name=rule.name)
         except Exception as e:
             self.logger.exceptions(e, where='render_rule')
             await self.reject(message, requeue=False)
@@ -82,6 +81,7 @@ class RuleExecutorConsumer(AmqpConsumer):
             _data = Schema({
                 "record": Use(Record.parse_obj),
                 "rule": Use(Rule.parse_obj),
+                "rule_schema": list,
             }).validate(data)
         except SchemaError as e:
             self.logger.error(e)
