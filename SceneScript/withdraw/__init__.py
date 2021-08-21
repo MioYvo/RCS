@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Dict
 
 from utils import Operator
@@ -10,7 +11,7 @@ async def single_withdrawal_amount_limit(event_data: dict, kwargs: Dict[str, Ope
     coin_name_rst = coin_name_opt.func(event_data.get('coin_name'), coin_name_opt.data) if coin_name_opt else True
 
     if coin_name_rst:
-        amount_rst = amount_opt.func(event_data.get('amount'), amount_opt.data)
+        amount_rst = amount_opt.func(Decimal(str(event_data.get('amount'))), Decimal(str(amount_opt.data)))
         if amount_rst:
             return True
     return False

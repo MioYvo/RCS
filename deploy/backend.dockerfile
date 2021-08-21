@@ -29,6 +29,7 @@ RUN yum update -y && \
 COPY model /app/model
 COPY utils /app/utils
 COPY config /app/config
+COPY SceneScript /app/SceneScript
 
 
 #EXPOSE 80

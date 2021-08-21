@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Optional
 
 from aio_pika import IncomingMessage
@@ -90,8 +91,8 @@ class AccessConsumer(AmqpConsumer):
         :return:
         """
         rules = await record.rules()
-        if len(rules) != len(rules):
-            await self.update_rules(rules, event=record.event)
+        # if len(rules) != len(rules):
+        #     await self.update_rules(rules, event=record.event)
         for rule in rules:
             rule: Rule
             # may Replace rule's schema with record data here
@@ -100,7 +101,7 @@ class AccessConsumer(AmqpConsumer):
                 logger.error(f'DP: Rule not found: {rule}')
                 continue
             # record.reformat_event_data()
-            rule_schema = rule.rule
+            rule_schema = deepcopy(rule.rule)
             _rule_schema = await RuleParser.render_rule(rule_schema, record.event_data)
 
             data = {

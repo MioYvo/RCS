@@ -101,7 +101,7 @@ services:
       - rabbit_pass
 
   ac:
-    scale: 3
+    scale: 1
     build:
       context: ../Access
       dockerfile: ../Access/Dockerfile
@@ -152,7 +152,7 @@ services:
       - mongo_pass
 
   reg:
-    scale: 2
+    scale: 1
     build:
       context: ../RuleEngine
       dockerfile: Dockerfile
