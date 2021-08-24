@@ -130,7 +130,7 @@ services:
       - mongo_pass
 
   dp:
-    scale: 2
+    scale: 1
     build:
       context: ../DataProcessor
       dockerfile: Dockerfile

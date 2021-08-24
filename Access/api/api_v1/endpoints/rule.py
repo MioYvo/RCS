@@ -10,7 +10,7 @@ from odmantic.field import FieldProxy
 from odmantic.query import SortExpression
 
 from Access.api.deps import Page, YvoJSONResponse
-from model.odm import Rule, Event, Result, Scene
+from model.odm import Rule, Event, Result, Scene, Status
 from model.mapping import COLL_MAPPING
 from utils.fastapi_app import app
 from utils.rule_operator import RuleParser
@@ -90,9 +90,7 @@ async def get_rule(rule_id: ObjectId):
     rule = await app.state.engine.find_one(Rule, Rule.id == rule_id)
     if not rule:
         raise RCSExcNotFound(entity_id=str(rule_id))
-    return YvoJSONResponse(
-        dict(content=rule.dict()),
-    )
+    return rule
 
 
 @router.delete("/rule/{rule_id}")
@@ -117,3 +115,14 @@ async def delete_rule(rule_id: ObjectId):
     return YvoJSONResponse(
         dict(content=rule.dict()),
     )
+
+
+@router.put("/rule/{rule_id}/status", response_model=Rule)
+async def update_rule_status(rule_id: ObjectId, status: Status):
+    rule = await app.state.engine.find_one(Rule, Rule.id == rule_id)
+    if not rule:
+        raise RCSExcNotFound(entity_id=str(rule_id))
+
+    rule.status = status
+    await app.state.engine.save(rule)
+    return rule

@@ -94,6 +94,7 @@ class EventSchema:
             _type = v.pop('type')
             _desc = v.pop('desc', None)
             _config = v.pop('config', None)
+            _unit = v.pop('unit', None)
             fn = getattr(cls, f'type_{_type}')
             _schema[k] = fn(**v)
         return Schema(_schema, ignore_extra_keys=ignore_extra_keys)

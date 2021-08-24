@@ -182,7 +182,7 @@ class RuleParser(object):
         if not isinstance(rule, list):
             raise RuleEvaluationError('Rule must be a list, got {}'.format(type(rule)))
         if len(rule) < 2:
-            raise RuleEvaluationError('Must have at least one argument.')
+            raise RuleEvaluationError('Rule must have at least one argument.')
 
     @classmethod
     def coll_info(cls, rule: list) -> Dict[str, Set[ObjectId]]:
@@ -208,7 +208,7 @@ class RuleParser(object):
         def _scan(_rule: list, _oid_set: set):
             for rl in _rule:
                 if isinstance(rl, list):
-                    if rl and len(rl) > 2 and isinstance(rl[0], str) and rl[0].upper() == cls.SCENE_PREFIX:
+                    if rl and len(rl) > 2 and isinstance(rl[0], str) and rl[0].upper() + "::" == cls.SCENE_PREFIX:
                         _oid_set.add(rl[1])
                     _scan(rl, _oid_set)
         _scan(rule, _oid_set)
@@ -349,8 +349,6 @@ class RuleParser(object):
     @classmethod
     def evaluate_rule(cls, rule) -> bool:
         return cls(rule).evaluate()
-
-    # TODO validate rule, args must be same type to compare with
 
 
 if __name__ == '__main__':

@@ -34,7 +34,7 @@ class RecordsOut(BaseModel):
 class RecordIn(BaseModel):
     event_name: str
     event_at: Optional[datetime] = PDField(default_factory=datetime.utcnow)
-    event_data: dict
+    event_data: dict = PDField(title='事件数据')
     user: User
 
 

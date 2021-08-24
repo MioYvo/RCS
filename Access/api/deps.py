@@ -8,14 +8,13 @@ from math import ceil
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel
 from fastapi.responses import Response
 from pysmx.SM3 import hash_msg
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
 
 from utils.fastapi_app import app
-from utils.rule_operator import RuleParser
-from model.odm import Rule, Handler, HandlerRole
+from model.odm import Handler, HandlerRole
 from utils.encoder import MyEncoder
 
 

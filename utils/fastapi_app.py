@@ -1,17 +1,23 @@
 # __author__ = "Mio"
 # __email__: "liurusi.101@gmail.com"
 # created: 5/12/21 11:42 PM
+import base64
 import os
+import secrets
 import socket
+from uuid import uuid4
 
 import aioredis
 import pymongo.errors
 from aio_pika import connect_robust, Connection, Channel
+from aioredis import Redis
 from loguru import logger
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
+from pysmx.SM3 import hash_msg
 
+from model.odm import Handler, HandlerRole
 from utils.exceptions import RCSException
 from utils.yvo_engine import YvoEngine
 from config import PROJECT_NAME, MONGO_URI, MONGO_DB, PIKA_URL, RCSExchangeName, AccessExchangeType, REDIS_DB, \
@@ -35,6 +41,15 @@ async def unicorn_exception_handler(request: Request, exc: RCSException):
 
 
 # noinspection PyUnusedLocal
+@app.exception_handler(Exception)
+async def unicorn_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"content": str(exc), "arg": exc.args},
+    )
+
+
+# noinspection PyUnusedLocal
 @app.exception_handler(pymongo.errors.OperationFailure)
 async def unicorn_exception_handler(request: Request, exc: pymongo.errors.OperationFailure):
     return JSONResponse(
@@ -53,9 +68,7 @@ async def make_queues(amqp_connection: Connection):
     await channel.close()
 
 
-@app.on_event("startup")
-async def startup_event():
-    # rabbitMQ
+async def startup_rabbit():
     logger.info('rabbitMQ: connecting ...')
     app.state.amqp_connection = await connect_robust(
         url=PIKA_URL,
@@ -70,7 +83,8 @@ async def startup_event():
     await make_queues(amqp_connection=app.state.amqp_connection)
     logger.info('rabbitMQ: queues made')
 
-    # redis
+
+async def startup_redis():
     logger.info('redis: connecting ...')
     app.state.a_redis = await aioredis.create_redis_pool(
         address=(REDIS_HOST, REDIS_PORT), db=REDIS_DB, password=REDIS_PASS,
@@ -78,7 +92,8 @@ async def startup_event():
     )
     logger.info('redis: connected')
 
-    # mongo
+
+async def startup_mongo():
     logger.info('mongo: connecting ...')
     app.state.engine = YvoEngine(AsyncIOMotorClient(str(MONGO_URI)), database=MONGO_DB,
                                  a_redis_client=app.state.a_redis)
@@ -102,6 +117,40 @@ async def startup_event():
                 except Exception as e:
                     logger.error(e)
         logger.info('mongo indexes: created')
+
+
+async def startup_admin_user():
+    logger.info('user admin: creating ...')
+    redis: Redis = app.state.a_redis
+    r_key = "startup::admin_user"
+    if not await redis.set(r_key, '1', expire=10, exist=redis.SET_IF_NOT_EXIST):
+        logger.info('user admin: duplicated startup_admin_user')
+        return
+
+    exists_admin = await app.state.engine.find_one(Handler, Handler.name == 'admin')
+    if exists_admin:
+        logger.info('user admin: exists')
+    else:
+        pwd = secrets.token_urlsafe()
+        b64_pwd = base64.b64encode(pwd.encode())
+        new_admin = Handler(name='admin', role=HandlerRole.ADMIN, encrypted_password=hash_msg(b64_pwd),
+                            token=hash_msg(str(uuid4())))
+        logger.info(f'user admin: {pwd}, b64encoded: {b64_pwd}')
+        await app.state.engine.save(new_admin)
+
+    # await redis.delete(key=r_key)
+
+
+@app.on_event("startup")
+async def startup_event():
+    # RabbitMQ
+    await startup_rabbit()
+    # Redis
+    await startup_redis()
+    # MongoDB
+    await startup_mongo()
+    # User admin
+    await startup_admin_user()
 
 
 @app.on_event("shutdown")

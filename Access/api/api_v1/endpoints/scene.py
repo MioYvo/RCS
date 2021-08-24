@@ -103,10 +103,27 @@ async def get_scene(scene_id: ObjectId):
     return scene
 
 
+@router.get("/scene/name/{scene_name}", response_model=Scene)
+async def get_scene(scene_name: str):
+    scene = await app.state.engine.find_one(Scene, Scene.name == scene_name)
+    if not scene:
+        raise RCSExcNotFound(entity_id=scene_name)
+    return scene
+
+
 @router.delete("/scene/{scene_id}", response_model=Scene)
 async def delete_scene(scene_id: ObjectId):
     scene = await app.state.engine.find_one(Scene, Scene.id == scene_id)
     if not scene:
         raise RCSExcNotFound(entity_id=str(scene_id))
+    await app.state.engine.delete(scene)
+    return scene
+
+
+@router.delete("/scene/{scene_name}", response_model=Scene)
+async def delete_scene(scene_name: str):
+    scene = await app.state.engine.find_one(Scene, Scene.name == scene_name)
+    if not scene:
+        raise RCSExcNotFound(entity_id=scene_name)
     await app.state.engine.delete(scene)
     return scene
