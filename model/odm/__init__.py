@@ -139,7 +139,7 @@ class Action(str, Enum):
 # noinspection PyAbstractClass
 class Punishment(Model):
     results: List[ObjectId] = Field(..., title='关联的结果')
-    action: str = Field(..., max_length=20, title="处罚动作")
+    action: Action = Field(..., max_length=20, title="处罚动作")
     details: dict = Field(default=dict(), title="详细")
     memo: str = Field('', max_length=20, title="备注")
     handler: Handler = Reference()
@@ -231,9 +231,11 @@ class Rule(Model):
     name: str = Field(max_length=25)
     serial_no: int = Field(default_factory=serial_no_generator, title="规则序列号")
     user_prompt: str = Field(max_length=50, default='', title="用户提示")
-    project: str = Field(..., title="项目", description="从config接口获取完整配置")
+    project: List[str] = Field(..., title="项目(列表)", description="从config接口获取完整配置")
     control_type: str = Field(..., title="控制类型/规则触发", description="从config接口获取完整配置")
     execute_type: str = Field(..., title="执行方式/风控方式", description="从config接口获取完整配置")
+    punish_action: Action = Field(default=Action.REFUSE_OPERATION, title="风控手段/处罚方式", description="从config接口获取完整配置")
+    punish_action_args: dict = Field(default_factory=dict, title="风控手段/处罚方式的参数")
     status: Status = Field(default=Status.OFF, title="状态", description="通过上下架接口更改")
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
@@ -298,7 +300,7 @@ class Rule(Model):
                     },
                      {
                         "key": "and",
-                        "type": "charge",
+                        "type": "recharge",
                         "value": "single_charge_amount_limit",
                         "source": "scene",
                         "children": [
@@ -322,14 +324,15 @@ class Rule(Model):
             :return:
             """
             rst = []
-            if rule.get('type') and rule.get('source', 'scene') == 'scene':
+            source = rule.get('source', 'scene')
+            if rule.get('type') and source == 'scene':
                 # ignore scene rule's `key`(and/or)
                 # scene
-                rst = [rule['source'], rule['value']]
+                rst = [source, rule['value']]
                 if not rule['children']:
                     raise RCSExcErrArg(f'no children in {rule["value"]}')
                 for arg in rule['children']:
-                    rst.append([arg['operator'], f"{rule['source']}::{arg['argument']}", arg['value']])
+                    rst.append([arg['operator'], f"{source}::{arg['argument']}", arg['value']])
                 return rst
             else:
                 rst.append(rule['key'])
