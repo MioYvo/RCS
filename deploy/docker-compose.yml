@@ -25,6 +25,7 @@ services:
       - --api
 #      - --api.dashboard=true
       - --api.insecure=true
+      - --entryPoints.http.address=:801
 #    deploy:
 #      placement:
 #        constraints:
@@ -37,10 +38,10 @@ services:
 #      - traefik.http.routers.rcs-proxy-http.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
       - traefik.http.routers.rcs-proxy-http.entrypoints=http
       # Define the port inside of the Docker service to use
-      - traefik.http.services.rcs-proxy.loadbalancer.server.port=80
+      - traefik.http.services.rcs-proxy.loadbalancer.server.port=801
     ports:
-    - "80:80"
-    - "8080:8080"
+    - "801:801"
+    - "12080:8080"
 
   mongo:
     image: mongo:latest
@@ -48,7 +49,7 @@ services:
 #    labels:
 #      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
-      - /data/RCS/mongo:/data/db
+      - /home/pdxpytest/rcs/secrets/mongo:/data/db
     command: --wiredTigerCacheSizeGB 1.5
     hostname: yvo
     environment:
@@ -69,7 +70,7 @@ services:
     #    labels:
     #      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
-      - /data/RCS/redis:/data  # RDB file
+      - /home/pdxpytest/rcs/secrets/redis:/data  # RDB file
     ports:
       - 6379:6379
     logging:
@@ -78,17 +79,19 @@ services:
         max-file: "10"
 
   rabbit:
-    image: rabbitmq:3-management-alpine
+    build:
+      context: ../deploy/rabbitmq
+      dockerfile: rabbitmq.dockerfile
     restart: always
 #    labels:
 #      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
-      - /data/RCS/rabbitmq:/var/lib/rabbitmq
-      - /etc/RCS/rabbitmq.conf:/etc/rabbitmq.conf
+      - /home/pdxpytest/rcs/secrets/rabbitmq:/var/lib/rabbitmq
+#      - /etc/RCS/rabbitmq.conf:/etc/rabbitmq.conf
     hostname: yvo
-#    environment:
-#      RABBITMQ_USER: 'RCSAccess'
-#      RABBITMQ_PASS_FILE: '/run/secrets/rabbit_pass'
+    environment:
+      RABBITMQ_USER: 'RCSAccess'
+      RABBITMQ_PASS_FILE: '/run/secrets/rabbit_pass'
     ports:
       - "5672:5672"
       - "25671:15671"
@@ -196,6 +199,6 @@ networks:
 
 secrets:
   rabbit_pass:
-    file: /etc/RCS/rabbit_pass
+    file: /home/pdxpytest/rcs/secrets/rabbit_pass
   mongo_pass:
-    file: /etc/RCS/mongo_pass
+    file: /home/pdxpytest/rcs/secrets/mongo_pass
