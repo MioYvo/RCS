@@ -99,19 +99,10 @@ async def delete_rule(rule_id: ObjectId):
     if not rule:
         raise RCSExcNotFound(entity_id=str(rule_id))
 
-    # remove rule from all Event
-    coll: AgnosticCollection = app.state.engine.get_collection(Event)
-    await coll.update_many(
-        {'rules': {"$elemMatch": {"$eq": rule_id}}},
-        {
-            '$pull': {'rules': rule_id}
-        }
-    )
-
-    for result in (await app.state.engine.gets(Result, Result.rule == rule_id) or []):
-        await app.state.engine.delete(result)
-    # events = app.state.engine.client.gets(Event, {"rules": {"$elemMatch": {"$eq": rule_id}}})
+    # del cache
     await app.state.engine.delete(rule)
+    # remove rule from all Event
+    await Rule.clean(rule_id)
     return YvoJSONResponse(
         dict(content=rule.dict()),
     )

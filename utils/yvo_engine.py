@@ -11,6 +11,7 @@ from odmantic import Model, AIOEngine, ObjectId
 from odmantic.engine import ModelType
 from odmantic.query import QueryExpression
 from pydantic.utils import lenient_issubclass
+from pymongo.results import UpdateResult
 
 from config import SCHEMA_TTL, CACHE_NAMESPACE
 from config.clients import pickle_serializer, redis_cache_no_self
@@ -103,3 +104,27 @@ class YvoEngine(AIOEngine):
             model, getattr(model, model.__primary_field__) == doc['_id'],
             return_doc=return_doc, return_doc_include=return_doc_include
         ) async for doc in motor_cursor]
+
+    async def yvo_pipeline(self, model: Type[ModelType], *queries, pipeline: List[Dict] = None) -> List[Dict]:
+        if not pipeline:
+            pipeline = []
+        if queries:
+            query = AIOEngine._build_query(*queries)
+            _pipeline: List[Dict] = [{"$match": query}]
+            _pipeline.extend(pipeline)
+        else:
+            _pipeline = pipeline
+        logger.info(f"pipeline::{_pipeline}")
+        collection = self.get_collection(model)
+        motor_cursor = collection.aggregate(_pipeline)
+        return [doc async for doc in motor_cursor]
+
+    async def update_many(self, model: Type[ModelType], *queries, update: List[Dict] = None) -> UpdateResult:
+        collection = self.get_collection(model)
+        query = AIOEngine._build_query(*queries)
+        return await collection.update_many(filter=query, update=update)
+
+    async def delete_many(self, model: Type[ModelType], *queries):
+        collection = self.get_collection(model)
+        query = AIOEngine._build_query(*queries)
+        return await collection.delete_many(filter=query)

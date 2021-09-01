@@ -49,7 +49,7 @@ services:
 #    labels:
 #      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
-      - /home/pdxpytest/rcs/secrets/mongo:/data/db
+      - "$DATA_PATH/mongo:/data/db"
     command: --wiredTigerCacheSizeGB 1.5
     hostname: yvo
     environment:
@@ -70,7 +70,7 @@ services:
     #    labels:
     #      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
-      - /home/pdxpytest/rcs/secrets/redis:/data  # RDB file
+      - "$DATA_PATH/redis:/data"  # RDB file
     ports:
       - 6379:6379
     logging:
@@ -86,7 +86,7 @@ services:
 #    labels:
 #      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
-      - /home/pdxpytest/rcs/secrets/rabbitmq:/var/lib/rabbitmq
+      - "$DATA_PATH/rabbitmq:/var/lib/rabbitmq"
 #      - /etc/RCS/rabbitmq.conf:/etc/rabbitmq.conf
     hostname: yvo
     environment:
@@ -199,6 +199,6 @@ networks:
 
 secrets:
   rabbit_pass:
-    file: /home/pdxpytest/rcs/secrets/rabbit_pass
+    file: "$SECRETS_PATH/rabbit_pass"
   mongo_pass:
-    file: /home/pdxpytest/rcs/secrets/mongo_pass
+    file: "$SECRETS_PATH/mongo_pass"

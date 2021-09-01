@@ -111,4 +111,5 @@ async def delete_record(record_id: ObjectId):
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
     await app.state.engine.delete(record)
+    await Record.clean(record_id)
     return YvoJSONResponse(record.dict())

@@ -1,16 +1,11 @@
-import functools
-from .withdraw import single_withdrawal_amount_limit
+import loguru
 
-scene_scripts = dict()
+from SceneScript.register import scripts_manager
+from SceneScript.withdraw import single_withdrawal_amount_limit, single_withdrawal_amount_per_time_limit
+from SceneScript.recharge import single_recharge_amount_per_time_limit, single_recharge_amount_limit
 
-scene_scripts[single_withdrawal_amount_limit.__name__] = single_withdrawal_amount_limit
-
-
-def scripts(func):
-    if not scene_scripts.get(func.__name__):
-        scene_scripts[func.__name__] = func
-
-    @functools.wraps(func)
-    def wrapper(*args, **kw):
-        return func(*args, **kw)
-    return wrapper
+loguru.logger.info('registering')
+scripts_manager.register(single_withdrawal_amount_limit)
+scripts_manager.register(single_withdrawal_amount_per_time_limit)
+scripts_manager.register(single_recharge_amount_limit)
+scripts_manager.register(single_recharge_amount_per_time_limit)

@@ -7,3 +7,4 @@ class Operator:
     arg_name: str
     func: Callable
     data: object
+    func_name: str

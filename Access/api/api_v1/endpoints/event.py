@@ -99,4 +99,5 @@ async def delete_event(event_id: ObjectId):
     if not event:
         raise RCSExcNotFound(entity_id=str(event_id))
     await app.state.engine.delete(event)
+    await Event.clean(event_id)
     return event

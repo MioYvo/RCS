@@ -5,7 +5,7 @@ from copy import deepcopy
 from datetime import timedelta
 from functools import partial
 
-from bson import Decimal128
+from bson.decimal128 import Decimal128
 from pytz import utc
 from schema import Schema, Use, And
 

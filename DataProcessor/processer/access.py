@@ -6,7 +6,7 @@ from loguru import logger
 from schema import SchemaError
 
 from config import RCSExchangeName, RULE_EXE_ROUTING_KEY, DATA_PROCESSOR_ROUTING_KEY
-from model.odm import Event, Record, Rule
+from model.odm import Event, Record, Rule, Status
 from utils.amqp_consumer import AmqpConsumer
 from utils.amqp_publisher import publisher
 from utils.event_schema import EventSchema
@@ -38,7 +38,7 @@ class AccessConsumer(AmqpConsumer):
         if not record:
             return await self.ack(message)
 
-        await app.state.engine.save(record)
+        record = await app.state.engine.save(record)
 
         # rst: InsertOneResult = await record_collection.insert_one(data)
         self.logger.info("InsertSuccess", collection=Record, doc=record.id)
@@ -96,17 +96,24 @@ class AccessConsumer(AmqpConsumer):
         for rule in rules:
             rule: Rule
             # may Replace rule's schema with record data here
-            rule = await app.state.engine.find_one(Rule, Rule.id == rule)
+            # rule = await app.state.engine.find_one(Rule, Rule.id == rule, Rule.status == Status.ON, Rule.project)
+            rule = await app.state.engine.find_one(
+                Rule,
+                {
+                    "_id": {"$eq": rule},
+                    "status": {"$eq": Status.ON},
+                    "project": {"$elemMatch": {"$eq": record.user.project}}
+                }
+            )
             if not rule:
-                logger.error(f'DP: Rule not found: {rule}')
                 continue
             # record.reformat_event_data()
             rule_schema = deepcopy(rule.rule)
-            _rule_schema = await RuleParser.render_rule(rule_schema, record.event_data)
+            _rule_schema = await RuleParser.render_rule(rule_schema, record)
 
             data = {
-                "record": record.dict(),
-                "rule": rule.dict(),
+                "record": record.id,
+                "rule": rule.id,
                 "rule_schema": _rule_schema
             }
             tf, rst, sent_msg = await publisher(

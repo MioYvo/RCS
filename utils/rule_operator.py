@@ -2,16 +2,16 @@
 # __email__: "liurusi.101@gmail.com"
 # created: 3/30/21 6:04 PM
 import json
-import logging
 from collections import defaultdict
 from enum import Enum
 from functools import reduce
 from typing import Union, Optional, Dict, Set
 
+from loguru import logger as logging
 from bson import Decimal128, ObjectId
 
-from SceneScript import scene_scripts
-from model.odm import Event, Scene
+from SceneScript import scripts_manager
+from model.odm import Event, Scene, Record
 from utils import Operator
 from utils.fastapi_app import app
 
@@ -215,20 +215,20 @@ class RuleParser(object):
         return _oid_set
 
     @classmethod
-    async def render_rule(cls, rule: list, event_data: dict):
+    async def render_rule(cls, rule: list, record: Record):
         # print(rule)
         for i, rl in enumerate(rule):
             if isinstance(rl, list):
                 if rl and isinstance(rl[0], str) and \
                         (rl[0].upper() == cls.SCENE_PREFIX or rl[0].upper() == cls.SCENE_PREFIX[:-2]):
-                    rule[i] = await cls._render_scene(rl, event_data)
+                    rule[i] = await cls._render_scene(rl, record)
                 else:
-                    rule[i] = await cls.render_rule(rl, event_data)
+                    rule[i] = await cls.render_rule(rl, record)
             elif isinstance(rl, str):
                 if rl.startswith(cls.DATA_PREFIX):
                     rule[i] = await cls.get_data(rl)
                 elif rl.startswith(cls.REPLACE_PREFIX):
-                    rule[i] = cls.replace_data(rl, event_data)
+                    rule[i] = cls.replace_data(rl, record.event_data)
                 else:
                     pass
             else:
@@ -236,7 +236,7 @@ class RuleParser(object):
         return rule
 
     @classmethod
-    async def _render_scene(cls, scene_rule: list, event_data: dict) -> bool:
+    async def _render_scene(cls, scene_rule: list, record: Record) -> bool:
         """
         render scene rule
         :param scene_rule: list, rule of scene
@@ -246,13 +246,16 @@ class RuleParser(object):
                 [">", "Scene::amount", new NumberInt("10")],
                 ["=", "Scene::coin_name", "USDT-TRC20"]
             ]
-        :param event_data: dict, data of event
+        :param record: Record, data of record
             {
-                "coin_name": "ETH", "project": "VDEX", "user_id": "user-uuid-abc-def",
-                "order_from": "address-of-order-from",
-                "order_to": "address-of-order-to",
-                "amount": Decimal("123.123"),
-                "dt": datetime.datetime(2021, 8, 20, 19, 40, 32, 419144)
+                "user": {"user_id": "xxx", "project": "paydex"}
+                "event_data": {
+                    "coin_name": "ETH", "project": "VDEX", "user_id": "user-uuid-abc-def",
+                    "order_from": "address-of-order-from",
+                    "order_to": "address-of-order-to",
+                    "amount": Decimal("123.123"),
+                    "dt": datetime.datetime(2021, 8, 20, 19, 40, 32, 419144)
+                }
             }
         :return:
         """
@@ -272,9 +275,9 @@ class RuleParser(object):
                 continue
             arg_name = rl[1].upper().split(cls.SCENE_PREFIX)[1].lower()
             data = rl[2]
-            kwargs[arg_name] = Operator(arg_name, func, data)
-        scene_script = scene_scripts[scene.name]
-        rendered_rule: bool = await scene_script(event_data, kwargs)
+            kwargs[arg_name] = Operator(arg_name, func, data, func_name=func_name)
+        scene_script = scripts_manager.scene_scripts[scene.name]
+        rendered_rule: bool = await scene_script(record, kwargs)
         return rendered_rule
 
     @classmethod

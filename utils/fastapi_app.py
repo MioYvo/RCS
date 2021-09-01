@@ -95,7 +95,8 @@ async def startup_redis():
 
 async def startup_mongo():
     logger.info('mongo: connecting ...')
-    app.state.engine = YvoEngine(AsyncIOMotorClient(str(MONGO_URI)), database=MONGO_DB,
+    # noinspection PyTypeHints
+    app.state.engine: YvoEngine = YvoEngine(AsyncIOMotorClient(str(MONGO_URI)), database=MONGO_DB,
                                  a_redis_client=app.state.a_redis)
     mongo_si = await app.state.engine.client.server_info()  # si: server_info
     logger.info(f'mongo:server_info version:{mongo_si["version"]} ok:{mongo_si["ok"]}')

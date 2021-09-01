@@ -2,11 +2,10 @@
 # __email__: "liurusi.101@gmail.com"
 # created: 3/31/21 4:54 AM
 import json
-import logging
-from copy import deepcopy
 from typing import Optional
 
 from aio_pika import IncomingMessage
+from bson import ObjectId
 from schema import Schema, SchemaError, Use
 
 from model.odm import Record, Rule, Result
@@ -54,19 +53,19 @@ class RuleExecutorConsumer(AmqpConsumer):
         if not data:
             return await self.ack(message)
         else:
-            record: Record = data['record']
-            rule: Rule = data['rule']
+            record: Record = await app.state.engine.find_one(Record, Record.id == data['record'])
+            rule: Rule = await app.state.engine.find_one(Rule, Rule.id == data['rule'])
             rule_schema: list = data['rule_schema']
 
-        self.logger.info(trigger_by=record)
+        self.logger.info(trigger_by=record.id, event=record.event.name, rule_name=rule.name)
         try:
             if RuleParser.evaluate_rule(rule_schema):
                 # matched rule
-                self.logger.info('RuleMatched', rule_id=rule.id, rule_name=rule.name)
+                self.logger.info('✓RuleMatched✓', rule_id=rule.id, rule_name=rule.name)
                 result = Result(rule=rule, record=record, processed=False)
                 await app.state.engine.save(result)
             else:
-                self.logger.info('RuleNotMatch', rule_id=rule.id, rule_name=rule.name)
+                self.logger.info('✗RuleNotMatch✗', rule_id=rule.id, rule_name=rule.name, rule=rule.name)
         except Exception as e:
             self.logger.exceptions(e, where='render_rule')
             await self.reject(message, requeue=False)
@@ -79,8 +78,8 @@ class RuleExecutorConsumer(AmqpConsumer):
         try:
             data = json.loads(message.body)
             _data = Schema({
-                "record": Use(Record.parse_obj),
-                "rule": Use(Rule.parse_obj),
+                "record": Use(ObjectId),
+                "rule": Use(ObjectId),
                 "rule_schema": list,
             }).validate(data)
         except SchemaError as e:

@@ -7,6 +7,7 @@
 
 ## Tips
 1. MongoDB 导出导入
-> 系统命令，不是mongo Shell 命令
+    > 系统命令，不是mongo Shell 命令
    1. `mongodump --uri="mongodb://USERNAME:PASSWORD@HOST:PORT" --archive=backup.tgz`
    2. `mongorestore --uri="mongodb://USERNAME:PASSWORD@HOST:PORT" --archive=backup.tgz`
+2. MongoDB 数据存储的时区（timezone）是UTC，所以使用时记得转换（工具`utils.gtz.Dt`）

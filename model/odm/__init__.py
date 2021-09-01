@@ -63,6 +63,18 @@ class Event(Model):
         else:
             raise Exception('metric func not implemented')
 
+    @classmethod
+    async def clean(cls, event_id: Union[ObjectId, str]):
+        event_id = ObjectId(event_id)
+        from utils.fastapi_app import app
+        rst = await app.state.engine.update_many(
+            Scene, {Scene.events: {"$elemMatch": {"$eq": event_id}}},
+            update={"$pull": {"rule": event_id}}
+        )
+        logger.info(rst)
+        rst = await app.state.engine.delete_many(Record, Record.event == event_id)
+        logger.info(rst)
+
 
 # noinspection PyAbstractClass
 class User(EmbeddedModel):
@@ -97,6 +109,13 @@ class Record(Model):
                              [scene.rules for scene in await app.state.engine.gets(
                                     Scene, Scene.events.in_([self.event.id]))])
         return set(rules) | set(scene_rules)
+
+    @classmethod
+    async def clean(cls, record_id: Union[ObjectId, str]):
+        record_id = ObjectId(record_id)
+        from utils.fastapi_app import app
+        rst = await app.state.engine.delete_many(Result, Result.record == record_id)
+        logger.info(rst)
 
 
 class Status(str, Enum):
@@ -343,10 +362,29 @@ class Rule(Model):
 
         return _translate(origin_rule)
 
+    @classmethod
+    async def clean(cls, rule_id: Union[ObjectId, str]):
+        rule_id = ObjectId(rule_id)
+        from utils.fastapi_app import app
+        rst = await app.state.engine.update_many(
+            Scene, {Scene.rules: {"$elemMatch": {"$eq": rule_id}}},
+            update={"$pull": {"rule": rule_id}}
+        )
+        logger.info(rst)
+        rst = await app.state.engine.update_many(
+            Event, {Event.rules: {"$elemMatch": {"$eq": rule_id}}},
+            update={"$pull": {"rule": rule_id}}
+        )
+        logger.info(rst)
+        rst = await app.state.engine.delete_many(Result, Result.rule == rule_id)
+        logger.info(rst)
+        # Do delete from engine
+        # await app.state.engine.delete(rule)
+
 
 # noinspection PyAbstractClass
 class Result(Model):
-    rule: Rule = Reference()        # reference to event
+    rule: Rule = Reference()        # reference to rule
     record: Record = Reference()
     processed: bool = Field(default=False, title="是否已处理")
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
