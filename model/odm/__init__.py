@@ -7,6 +7,7 @@ from enum import Enum
 from functools import reduce
 from typing import List, Optional, Union
 
+from bson import Decimal128
 from loguru import logger
 from pydantic import validator, root_validator
 from pymongo import IndexModel
@@ -277,7 +278,7 @@ class Rule(Model):
 
     @validator('serial_no')
     def check_serial_no(cls, v):
-        if not v or (isinstance(v, (float, int, Decimal)) and v <= 0):
+        if not v or (isinstance(v, (float, int, Decimal, Decimal128)) and v <= 0):
             v = serial_no_generator()
         return v
 
