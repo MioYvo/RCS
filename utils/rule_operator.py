@@ -181,7 +181,7 @@ class RuleParser(object):
         # TODO more validate info, args' type to compare with must be same type
         if not isinstance(rule, list):
             raise RuleEvaluationError('Rule must be a list, got {}'.format(type(rule)))
-        if len(rule) < 2:
+        if len(rule) < 1:
             raise RuleEvaluationError('Rule must have at least one argument.')
 
     @classmethod
@@ -206,6 +206,8 @@ class RuleParser(object):
         _oid_set = set()
 
         def _scan(_rule: list, _oid_set: set):
+            if len(_rule) > 2 and _rule[0].upper() + "::" == cls.SCENE_PREFIX:
+                _oid_set.add(_rule[1])
             for rl in _rule:
                 if isinstance(rl, list):
                     if rl and len(rl) > 2 and isinstance(rl[0], str) and rl[0].upper() + "::" == cls.SCENE_PREFIX:
@@ -225,6 +227,11 @@ class RuleParser(object):
                 else:
                     rule[i] = await cls.render_rule(rl, record)
             elif isinstance(rl, str):
+                if rl and isinstance(rl, str) and \
+                        (rl.upper() == cls.SCENE_PREFIX or rl.upper() == cls.SCENE_PREFIX[:-2]):
+                    # only one scene in rule and without and/or operator
+                    rule = await cls._render_scene(rule, record)
+                    return rule
                 if rl.startswith(cls.DATA_PREFIX):
                     rule[i] = await cls.get_data(rl)
                 elif rl.startswith(cls.REPLACE_PREFIX):
@@ -263,6 +270,7 @@ class RuleParser(object):
 
         scene = await app.state.engine.find_one(Scene, Scene.name == scene_rule[1])
         kwargs = dict()
+        origin_data = dict()
         for rl in scene_rule[2:]:
             if not isinstance(rl, list):
                 continue
@@ -276,6 +284,13 @@ class RuleParser(object):
             arg_name = rl[1].upper().split(cls.SCENE_PREFIX)[1].lower()
             data = rl[2]
             kwargs[arg_name] = Operator(arg_name, func, data, func_name=func_name)
+            origin_data[arg_name] = data
+        valid_rst, valid_data = scene.validate_schema(scene.scene_schema, origin_data)
+        if valid_rst:
+            for k, v in valid_data.items():
+                kwargs[k].data = v
+        else:
+            raise Exception(f"Failed validate scene schema: {valid_data}")
         scene_script = scripts_manager.scene_scripts[scene.name]
         rendered_rule: bool = await scene_script(record, kwargs)
         return rendered_rule

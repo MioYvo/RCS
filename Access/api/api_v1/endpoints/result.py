@@ -70,7 +70,9 @@ async def get_results(
         Result, *queries, sort=sort, skip=skip, limit=limit, return_doc=False)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(results))
     return YvoJSONResponse(
-        dict(content=[i.dict(exclude={'rule': {'rule', 'origin_rule'}, 'record': {'event': {'rcs_schema'}}}) for i in results], meta=p.meta_pagination()),
+        dict(content=[
+            i.dict(exclude={'rule': {'rule', 'origin_rule'}, 'record': {'event': {'rcs_schema'}}}
+                   ) for i in results], meta=p.meta_pagination()),
     )
 
 

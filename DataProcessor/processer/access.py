@@ -93,23 +93,26 @@ class AccessConsumer(AmqpConsumer):
         rules = await record.rules()
         # if len(rules) != len(rules):
         #     await self.update_rules(rules, event=record.event)
-        for rule in rules:
-            rule: Rule
+        for _rule in rules:
+            _rule: Rule
             # may Replace rule's schema with record data here
             # rule = await app.state.engine.find_one(Rule, Rule.id == rule, Rule.status == Status.ON, Rule.project)
             rule = await app.state.engine.find_one(
                 Rule,
                 {
-                    "_id": {"$eq": rule},
+                    "_id": {"$eq": _rule},
                     "status": {"$eq": Status.ON},
                     "project": {"$elemMatch": {"$eq": record.user.project}}
                 }
             )
             if not rule:
+                self.logger.info(f'no such rule effective: {_rule}')
                 continue
             # record.reformat_event_data()
             rule_schema = deepcopy(rule.rule)
             _rule_schema = await RuleParser.render_rule(rule_schema, record)
+            if not isinstance(_rule_schema, list):
+                _rule_schema = [_rule_schema]
 
             data = {
                 "record": record.id,

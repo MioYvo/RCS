@@ -8,8 +8,7 @@ ENV TZ='Asia/Shanghai'
 COPY deploy/requirements.txt /app/
 WORKDIR /app/
 
-RUN yum update -y && \
-    yum install -y yum-utils && \
+RUN yum install -y yum-utils && \
     cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
 #    poetry config virtualenvs.create false && \
 #    poetry install --no-root --no-dev && \

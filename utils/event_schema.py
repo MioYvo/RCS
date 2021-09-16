@@ -47,7 +47,7 @@ class EventSchema:
 
     @classmethod
     def type_seconds(cls):
-        return Use(lambda x: timedelta(seconds=x))
+        return And(Use(int), Use(lambda x: timedelta(seconds=x)))
 
     @classmethod
     def parse(cls, schema: dict, ignore_extra_keys=False) -> Schema:

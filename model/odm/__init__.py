@@ -266,8 +266,7 @@ class Rule(Model):
 
     @root_validator(pre=True)
     def check_root(cls, values):
-        if not values.get('rule'):
-            values['rule'] = cls.translate_to_rule_engine_rule(values['origin_rule'])
+        values['rule'] = cls.translate_to_rule_engine_rule(values['origin_rule'])
         return values
 
     @validator('rule')
@@ -368,13 +367,13 @@ class Rule(Model):
         rule_id = ObjectId(rule_id)
         from utils.fastapi_app import app
         rst = await app.state.engine.update_many(
-            Scene, {Scene.rules: {"$elemMatch": {"$eq": rule_id}}},
-            update={"$pull": {"rule": rule_id}}
+            Scene, {"rules": {"$elemMatch": {"$eq": rule_id}}},
+            update={"$pull": {"rules": rule_id}}
         )
         logger.info(rst)
         rst = await app.state.engine.update_many(
-            Event, {Event.rules: {"$elemMatch": {"$eq": rule_id}}},
-            update={"$pull": {"rule": rule_id}}
+            Event, {"rules": {"$elemMatch": {"$eq": rule_id}}},
+            update={"$pull": {"rules": rule_id}}
         )
         logger.info(rst)
         rst = await app.state.engine.delete_many(Result, Result.rule == rule_id)
