@@ -5,7 +5,7 @@ import datetime
 from decimal import Decimal
 from enum import Enum
 from functools import reduce
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Set
 
 from bson import Decimal128
 from loguru import logger
@@ -84,10 +84,19 @@ class User(EmbeddedModel):
 
 
 # noinspection PyAbstractClass
+class ResultInRecord(EmbeddedModel):
+    result_id: Optional[ObjectId] = Field(default=None, title='结果id')
+    rule_id: ObjectId
+    is_dispatched: bool = Field(default=False, title='是否已分发到检测机')
+    is_done: bool = Field(default=False, title='是否已检测完毕')
+
+
+# noinspection PyAbstractClass
 class Record(Model):
     event: Event = Reference()
     event_data: dict = Field(..., title="事件数据")
     user: User = Field(..., title="用户信息")
+    results: List[ResultInRecord] = Field(default_factory=list)
     event_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
 
@@ -100,9 +109,9 @@ class Record(Model):
         if rst:
             self.event_data = i
         else:
-            raise Exception(f'{+Record} reformat_event_data failed')
+            raise Exception(f'{Record} reformat_event_data failed')
 
-    async def rules(self) -> set:
+    async def rules(self) -> Set[ObjectId]:
         rules = self.event.rules
         from utils.fastapi_app import app
         # noinspection PyUnresolvedReferences
@@ -110,6 +119,32 @@ class Record(Model):
                              [scene.rules for scene in await app.state.engine.gets(
                                     Scene, Scene.events.in_([self.event.id]))])
         return set(rules) | set(scene_rules)
+
+    async def final_punish_level(self) -> int:
+        """
+        :return:
+        """
+        from utils.fastapi_app import app
+        rules = [i.rule_id for i in self.results if i.result_id]
+
+        rst = await app.state.engine.yvo_pipeline(
+            Rule,
+            Rule.id.in_(rules),
+            # Rule.execute_type == RuleExecuteType.automatic.value,   # only automatic rule's punish_level effective
+            pipeline=[
+                {"$group": {
+                    "_id": None,
+                    "final_punish_level": {"$sum": "$punish_level"}
+                }},
+                {"$project": {
+                    "final_punish_level": 1
+                }}
+            ]
+        )
+        if rst:
+            return rst[0]['final_punish_level']
+        else:
+            return 0
 
     @classmethod
     async def clean(cls, record_id: Union[ObjectId, str]):
@@ -151,9 +186,9 @@ class Handler(Model):
 
 
 class Action(str, Enum):
+    REFUSE_OPERATION = "REFUSE_OPERATION"
     BLOCK_USER = 'BLOCK_USER'
     BAN_USER_LOGIN = "BAN_USER_LOGIN"
-    REFUSE_OPERATION = "REFUSE_OPERATION"
 
 
 # noinspection PyAbstractClass
@@ -243,6 +278,29 @@ class Config(Model):
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
 
 
+class RuleExecuteType(str, Enum):
+    manual = 'manual'
+    automatic = "automatic"
+
+
+class RulePunishLevel(int, Enum):
+    level_1 = 1
+    level_5 = 5
+    level_10 = 10
+    level_20 = 20
+    level_30 = 30
+    level_50 = 50
+
+
+# if FINAL punish level >= level(key), then punish action[value]
+# higher level is harder punishment
+PUNISH_ACTION_LEVEL_MAP = {
+    1: Action.REFUSE_OPERATION,
+    15: Action.BAN_USER_LOGIN,
+    50: Action.BLOCK_USER
+}
+
+
 # noinspection PyAbstractClass
 class Rule(Model):
     rule: list = Field(default_factory=list, title="规则引擎规则")
@@ -254,6 +312,7 @@ class Rule(Model):
     project: List[str] = Field(..., title="项目(列表)", description="从config接口获取完整配置")
     control_type: str = Field(..., title="控制类型/规则触发", description="从config接口获取完整配置")
     execute_type: str = Field(..., title="执行方式/风控方式", description="从config接口获取完整配置")
+    punish_level: RulePunishLevel = Field(default=RulePunishLevel.level_1, title='风控等级/处罚等级', description="预设")
     punish_action: Action = Field(default=Action.REFUSE_OPERATION, title="风控手段/处罚方式", description="从config接口获取完整配置")
     punish_action_args: dict = Field(default_factory=dict, title="风控手段/处罚方式的参数")
     status: Status = Field(default=Status.OFF, title="状态", description="通过上下架接口更改")

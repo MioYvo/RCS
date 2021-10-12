@@ -40,7 +40,7 @@ class YvoEngine(AIOEngine):
         return_doc_include: Optional[set] = None,
     ) -> Union[Optional[ModelType], Optional[Dict]]:
         result = await super(YvoEngine, self).find_one(model, *queries, sort=sort)
-        logger.info(f'real:get:{model}:{queries}')
+        logger.debug(f'real:get:{model}:{queries}')
         if return_doc and result:
             return result.doc(include=return_doc_include)
         else:
@@ -51,7 +51,7 @@ class YvoEngine(AIOEngine):
         cur = b"0"  # set initial cursor to 0
         while cur:
             cur, keys = await self.a_redis_client.scan(cur, match=f"{CACHE_NAMESPACE}*{str(key)}*")
-            logger.info(f'delete_cache:keys:{keys}')
+            logger.debug(f'delete_cache:keys:{keys}')
             if keys:
                 await self.a_redis_client.delete(*keys)
 
@@ -114,7 +114,7 @@ class YvoEngine(AIOEngine):
             _pipeline.extend(pipeline)
         else:
             _pipeline = pipeline
-        logger.info(f"pipeline::{_pipeline}")
+        logger.debug(f"pipeline::{_pipeline}")
         collection = self.get_collection(model)
         motor_cursor = collection.aggregate(_pipeline)
         return [doc async for doc in motor_cursor]
@@ -122,9 +122,17 @@ class YvoEngine(AIOEngine):
     async def update_many(self, model: Type[ModelType], *queries, update: List[Dict] = None) -> UpdateResult:
         collection = self.get_collection(model)
         query = AIOEngine._build_query(*queries)
+        logger.debug(f"update_many::{query}::{update}")
         return await collection.update_many(filter=query, update=update)
+
+    async def update_one(self, model: Type[ModelType], *queries, update: List[Dict] = None) -> UpdateResult:
+        collection = self.get_collection(model)
+        query = AIOEngine._build_query(*queries)
+        logger.debug(f"update_one::{query}::{update}")
+        return await collection.update_one(filter=query, update=update)
 
     async def delete_many(self, model: Type[ModelType], *queries):
         collection = self.get_collection(model)
         query = AIOEngine._build_query(*queries)
+        logger.debug(f"delete_many::{query}")
         return await collection.delete_many(filter=query)

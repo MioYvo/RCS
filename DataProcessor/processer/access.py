@@ -1,12 +1,13 @@
 from copy import deepcopy
-from typing import Optional
+from typing import Optional, Set
 
 from aio_pika import IncomingMessage
-from loguru import logger
+from odmantic import ObjectId
+from pymongo.results import UpdateResult
 from schema import SchemaError
 
 from config import RCSExchangeName, RULE_EXE_ROUTING_KEY, DATA_PROCESSOR_ROUTING_KEY
-from model.odm import Event, Record, Rule, Status
+from model.odm import Event, Record, Rule, Status, ResultInRecord
 from utils.amqp_consumer import AmqpConsumer
 from utils.amqp_publisher import publisher
 from utils.event_schema import EventSchema
@@ -25,10 +26,10 @@ class AccessConsumer(AmqpConsumer):
             record: Record = Record.parse_raw(message.body)
             record.event_data = EventSchema.validate(record.event.rcs_schema, record.event_data)
         except SchemaError as e:
-            self.logger.error(e)
+            self.logger.exceptions(e)
             return None
         except Exception as e:
-            self.logger.error(e)
+            self.logger.exceptions(e)
             return None
         else:
             return record
@@ -65,21 +66,8 @@ class AccessConsumer(AmqpConsumer):
                         ],
                         [
                             "and",
-                            [
-                                "in_",
-                                1,
-                                1,
-                                "DATA::event::6063d91389944d50ed73a11c::latest_record::user_id",
-                                3
-                            ],
-                            [
-                                ">",
-                                "DATA::event::6063d91389944d50ed73a11c::latest_record::amount",
-                                [
-                                    "int",
-                                    "2"
-                                ]
-                            ]
+                            True,
+                            False
                         ]
                     ],
                     "id": 1,
@@ -90,33 +78,44 @@ class AccessConsumer(AmqpConsumer):
         :param record:
         :return:
         """
-        rules = await record.rules()
+        rules: Set[ObjectId] = await record.rules()
         # if len(rules) != len(rules):
         #     await self.update_rules(rules, event=record.event)
-        for _rule in rules:
+        _rules = await app.state.engine.gets(
+            Rule,
+            Rule.id.in_(list(rules)),
+            Rule.status == Status.ON,
+            {"project": {"$elemMatch": {"$eq": record.user.project}}}
+        )
+        self.logger.info(f'no such rule effective: {rules - {_r.id for _r in _rules}}')
+
+        record.results = [ResultInRecord(rule_id=_rule.id, is_dispatched=False) for _rule in _rules]
+        await app.state.engine.save(record)
+
+        for _rule in _rules:
             _rule: Rule
             # may Replace rule's schema with record data here
             # rule = await app.state.engine.find_one(Rule, Rule.id == rule, Rule.status == Status.ON, Rule.project)
-            rule = await app.state.engine.find_one(
-                Rule,
-                {
-                    "_id": {"$eq": _rule},
-                    "status": {"$eq": Status.ON},
-                    "project": {"$elemMatch": {"$eq": record.user.project}}
-                }
-            )
-            if not rule:
-                self.logger.info(f'no such rule effective: {_rule}')
-                continue
+            # rule = await app.state.engine.find_one(
+            #     Rule,
+            #     {
+            #         "_id": {"$eq": _rule},
+            #         "status": {"$eq": Status.ON},
+            #         "project": {"$elemMatch": {"$eq": record.user.project}}
+            #     }
+            # )
+            # if not rule:
+            #     self.logger.info(f'no such rule effective: {_rule}')
+            #     continue
             # record.reformat_event_data()
-            rule_schema = deepcopy(rule.rule)
+            rule_schema = deepcopy(_rule.rule)
             _rule_schema = await RuleParser.render_rule(rule_schema, record)
             if not isinstance(_rule_schema, list):
                 _rule_schema = [_rule_schema]
 
             data = {
                 "record": record.id,
-                "rule": rule.id,
+                "rule": _rule.id,
                 "rule_schema": _rule_schema
             }
             tf, rst, sent_msg = await publisher(
@@ -125,10 +124,21 @@ class AccessConsumer(AmqpConsumer):
                 routing_key=RULE_EXE_ROUTING_KEY, timestamp=Dt.now_ts(),
             )
             if tf:
+                await self.update_results(record=record, rule_id=_rule.id)
                 self.logger.info('publishSuccess', routing_key=RULE_EXE_ROUTING_KEY)
             else:
                 self.logger.error('publishFailed', routing_key=RULE_EXE_ROUTING_KEY)
 
-    async def update_rules(self, rules, event: Event):
+    async def update_results(self, record: Record, rule_id: ObjectId):
+        rst: UpdateResult = await app.state.engine.update_one(
+            Record,
+            Record.id == record.id,
+            {"results.rule_id": rule_id},
+            update={"$set": {"results.$.is_dispatched": True}}
+        )
+        self.logger.info(f"update_results::modified_count::{rst.modified_count}")
+
+    @staticmethod
+    async def update_rules(rules, event: Event):
         event.rules = list(rules)
         await app.state.engine.save(event)

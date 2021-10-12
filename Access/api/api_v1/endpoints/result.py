@@ -35,10 +35,6 @@ class ResultIn(BaseModel):
     user: User
 
 
-class ResultOut(BaseModel):
-    effect_published: bool
-
-
 @router.get("/result/")
 async def get_results(
         page: int = Query(default=1, ge=1),

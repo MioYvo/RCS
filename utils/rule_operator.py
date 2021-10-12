@@ -5,7 +5,7 @@ import json
 from collections import defaultdict
 from enum import Enum
 from functools import reduce
-from typing import Union, Optional, Dict, Set
+from typing import Union, Optional, Dict, Set, Callable
 
 from loguru import logger as logging
 from bson import Decimal128, ObjectId
@@ -14,6 +14,7 @@ from SceneScript import scripts_manager
 from model.odm import Event, Scene, Record
 from utils import Operator
 from utils.fastapi_app import app
+from utils.logger import Logger
 
 
 class RuleEvaluationError(Exception):
@@ -167,6 +168,7 @@ class RuleParser(object):
     DATA_PREFIX = "DATA::"
     REPLACE_PREFIX = "REPL::"
     SCENE_PREFIX = "SCENE::"
+    logger = Logger(name='RuleParser')
 
     def __init__(self, rule: Union[str, list], data: Optional[dict] = None):
         if isinstance(rule, str):
@@ -250,7 +252,7 @@ class RuleParser(object):
             [
                 "scene",
                 "single_withdrawal_amount_limit",
-                [">", "Scene::amount", new NumberInt("10")],
+                [">", "Scene::amount", 10],
                 ["=", "Scene::coin_name", "USDT-TRC20"]
             ]
         :param record: Record, data of record
@@ -291,7 +293,7 @@ class RuleParser(object):
                 kwargs[k].data = v
         else:
             raise Exception(f"Failed validate scene schema: {valid_data}")
-        scene_script = scripts_manager.scene_scripts[scene.name]
+        scene_script: Callable = scripts_manager.scene_scripts[scene.name]
         rendered_rule: bool = await scene_script(record, kwargs)
         return rendered_rule
 
@@ -352,7 +354,7 @@ class RuleParser(object):
                 return arg
 
         r: list = list(map(_recurse_eval, rule))
-        print(f'rlist: {r}')
+        self.logger.debug(f'rlist: {r}')
         func_name = Functions.ALIAS.get(r[0]) or r[0]
         func = getattr(Functions, func_name)
         return func(*r[1:])
