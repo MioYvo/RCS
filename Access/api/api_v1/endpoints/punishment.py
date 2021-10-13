@@ -1,19 +1,18 @@
 # __author__ = "Mio"
 # __email__: "liurusi.101@gmail.com"
 # created: 5/18/21 6:41 PM
-from datetime import datetime
 from decimal import Decimal
-from typing import Union, List, Optional
+from typing import Union, List
 
 from pydantic import BaseModel, Field as PDField
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from odmantic import ObjectId
 from odmantic.bson import BSON_TYPES_ENCODERS
 from odmantic.field import FieldProxy
 from odmantic.query import SortExpression
 
-from Access.api.deps import Page, YvoJSONResponse
-from model.odm import Result, Punishment, Record, Rule, Action
+from Access.api.deps import Page, YvoJSONResponse, get_current_username
+from model.odm import Punishment, Record, Rule, Action, Handler
 from utils.fastapi_app import app
 from utils.exceptions import RCSExcErrArg, RCSExcNotFound
 from utils.http_code import HTTP_201_CREATED
@@ -43,7 +42,7 @@ class PunishmentsOut(BaseModel):
 ## Update if `id` field passed.
 * `created_at` and `update_time` will be ignored.
 """)
-async def create_or_update_event(punishment: Punishment):
+async def create_or_update_event(punishment: Punishment, handler: Handler = Depends(get_current_username)):
     if punishment.dict(exclude_unset=True).get('id'):
         # Update
         exists_event = await app.state.engine.find_one(Punishment, Punishment.id == punishment.id)
@@ -81,6 +80,7 @@ async def get_punishments(
         # TODO filter records by rule_name
         # noinspection PyUnresolvedReferences
         rules = await app.state.engine.gets(Rule, Rule.name.match(rule_name))
+        # noinspection PyUnresolvedReferences
         records = await app.state.engine.gets(Record, Record.event.in_(rules))  # FIXME
         # noinspection PyUnresolvedReferences
         queries.append(Punishment.record.in_([r.id for r in records]))

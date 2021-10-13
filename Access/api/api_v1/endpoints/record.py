@@ -19,8 +19,10 @@ from utils.fastapi_app import app
 from utils.amqp_publisher import publisher
 from utils.http_code import HTTP_201_CREATED
 from utils.exceptions import RCSExcErrArg, RCSExcNotFound
+from utils.logger import Logger
 
 router = APIRouter()
+logger = Logger(__file__)
 
 
 class RecordsOut(BaseModel):
@@ -69,8 +71,9 @@ async def get_records(
         page: int = Query(default=1, ge=1),
         per_page: int = Query(default=20, ge=1),
         sort: str = Query(default='event_at', description='must be attribute of Record model'),
-        desc: bool = True, event_name: str = ""):
-
+        desc: bool = True,
+        event_name: str = Query(default="", description="filter by Event.name"),
+        relation_record_id: Union[ObjectId, str] = Query(default="", description="get specific record's related records")):
     _sort: FieldProxy = getattr(Record, sort, None)
     if not _sort:
         raise RCSExcErrArg(content=dict(sort=sort))
@@ -87,13 +90,23 @@ async def get_records(
         queries.append(Record.event.in_([e.id for e in events]))
         # !!! filter across references is not supported
         # queries.append(Record.event.name.match(name))
+    if relation_record_id:
+        _record: Record = await app.state.engine.find_one(Record, Record.id == ObjectId(relation_record_id))
+        if not _record:
+            raise RCSExcNotFound(entity_id=str(relation_record_id))
+        queries += [Record.event_at < _record.event_at, Record.user == _record.user]
+        # queries.append(Record.create_at < _record.create_at)
+        # queries.append(Record.user.user_id == _record.user.user_id)
+        # queries.append(Record.user.project == _record.user.project)
+
+    logger.info(queries)
     # count to calculate total_page
     total_count = await app.state.engine.count(Record, *queries)
     records = await app.state.engine.gets(
         Record, *queries, sort=sort, skip=skip, limit=limit, return_doc=False)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(records))
     return YvoJSONResponse(
-        dict(content=[i.dict() for i in records], meta=p.meta_pagination()),
+        dict(content=[await i.a_dict() for i in records], meta=p.meta_pagination()),
     )
 
 
@@ -102,6 +115,22 @@ async def get_record(record_id: ObjectId):
     record = await app.state.engine.find_one(Record, Record.id == record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
+    return YvoJSONResponse(record.dict())
+
+
+@router.get("/record/{record_id}/relation")
+async def get_record(record_id: ObjectId,
+                     event_name: str = Query(default='withdraw', description='事件名'),):
+    record = await app.state.engine.find_one(Record, Record.id == record_id)
+    if not record:
+        raise RCSExcNotFound(entity_id=str(record_id))
+
+    records = await app.state.engine.gets(
+        Record,
+        Record.create_at < record.create_at,
+        {"event.name": {"$regex": event_name}},
+        limit=5
+    )
     return YvoJSONResponse(record.dict())
 
 

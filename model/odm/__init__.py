@@ -22,6 +22,7 @@ from utils.gtz import Dt
 class Event(Model):
     rcs_schema: dict = Field(..., title="事件参数定义")
     name: str = Field(max_length=25)
+    desc: str = Field(max_length=50, title='事件描述')
     rules: List[ObjectId] = Field(default_factory=list, title="关联的规则id列表")
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
@@ -152,6 +153,11 @@ class Record(Model):
         from utils.fastapi_app import app
         rst = await app.state.engine.delete_many(Result, Result.record == record_id)
         logger.info(rst)
+
+    async def a_dict(self, *args, **kwargs):
+        d = self.dict(*args, **kwargs)
+        d['final_punish_level'] = await self.final_punish_level()
+        return d
 
 
 class Status(str, Enum):

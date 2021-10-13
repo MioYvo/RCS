@@ -1,7 +1,9 @@
 from fastapi import APIRouter as FastAPIRouter
 from typing import Any, Callable
 
-from Access.api.api_v1.endpoints import event, record, rule, result, scene, config
+from Access.api.api_v1.endpoints import (
+    event, record, rule, result, scene, config, punishment
+)
 
 
 class APIRouter(FastAPIRouter):
@@ -47,4 +49,5 @@ api_router.include_router(rule.router, tags=["rule"])
 api_router.include_router(result.router, tags=["result"])
 api_router.include_router(scene.router, tags=["scene"])
 api_router.include_router(config.router, tags=["config"])
+api_router.include_router(punishment.router, tags=["punishment"])
 # api_router.include_router(items.router, prefix="/items", tags=["items"])
