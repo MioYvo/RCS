@@ -64,10 +64,16 @@ class YvoJSONResponse(Response):
         ).encode("utf-8")
 
 
-security = HTTPBearer()
+security = HTTPBearer(auto_error=True)
 
 
 async def get_current_username(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Handler:
+    if not credentials:
+        raise HTTPException(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            # headers={"WWW-Authenticate": "Basic"},
+        )
     handler = await app.state.engine.find_one(Handler, Handler.token == credentials.credentials)
     if not handler:
         raise HTTPException(

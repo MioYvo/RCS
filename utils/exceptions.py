@@ -27,5 +27,11 @@ class RCSExcErrArg(RCSException):
             error_code=ERR_ARG, message="ArgsParseFailed", content=content)
 
 
+class RCSUnexpectedErr(RCSException):
+    def __init__(self, content: Any = None):
+        super(RCSUnexpectedErr, self).__init__(
+            error_code=ERR_ARG, message="UnexpectedError", content=content)
+
+
 class APIError(Exception):
     pass

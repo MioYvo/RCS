@@ -1,6 +1,7 @@
 # __author__ = "Mio"
 # __email__: "liurusi.101@gmail.com"
 # created: 5/18/21 6:41 PM
+import datetime
 from decimal import Decimal
 from typing import Union, List
 
@@ -21,9 +22,9 @@ router = APIRouter()
 
 
 class PunishmentIn(BaseModel):
-    results: List[ObjectId] = PDField(..., title='关联的结果id')
-    action: Action = PDField(..., title='处罚动作')
-    details: dict = PDField(default=dict(), title='详细信息（对象）')
+    record: ObjectId
+    action: Action = PDField(title="处罚动作")
+    details: dict = PDField(default=dict(), title="详细")
     memo: str = PDField(default='', max_length=20, title="备注")
 
 
@@ -35,29 +36,34 @@ class PunishmentsOut(BaseModel):
         json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
 
 
-@router.put("/punishment/", response_model=Punishment, status_code=HTTP_201_CREATED,
-            description="""
-## Create if no `id` field passed.
-* `name` and `rcs_schema` are required, other fields are optional.
-## Update if `id` field passed.
-* `created_at` and `update_time` will be ignored.
-""")
-async def create_or_update_event(punishment: Punishment, handler: Handler = Depends(get_current_username)):
-    if punishment.dict(exclude_unset=True).get('id'):
-        # Update
-        exists_event = await app.state.engine.find_one(Punishment, Punishment.id == punishment.id)
-        if exists_event:
-            new_update_ = Punishment(**punishment.dict(exclude={'update_at'})).dict(exclude={'create_at', 'id'})
-            for name, value in new_update_.items():
-                setattr(exists_event, name, value)
-            await app.state.engine.save(exists_event)
-            return exists_event
+@router.put("/punishment/",
+            response_model=Punishment,
+            status_code=HTTP_201_CREATED,
+            response_model_exclude={"handler": {"encrypted_password", "token"}},
+            description="")
+async def create_punishment(punishment: PunishmentIn, handler: Handler = Depends(get_current_username)):
+    record = await app.state.engine.find_one(Record, Record.id == punishment.record)
+    if not record:
+        raise RCSExcNotFound(entity_id=str(punishment.record))
+
+    if punishment.details:
+        _timedelta_arg = punishment.details.get('timedelta')
+        if _timedelta_arg:
+            _timedelta = datetime.timedelta(seconds=_timedelta_arg)
+            _utc_now = datetime.datetime.utcnow()
+            punishment.details['punishment_period'] = {
+                "start": _utc_now, "end": _utc_now + _timedelta
+            }
         else:
-            raise RCSExcNotFound(entity_id=str(punishment.id))
-    else:
-        # Create
-        await app.state.engine.save(punishment)
-        return punishment
+            punishment.details.pop("timedelta", None)
+    new_punishment = Punishment(
+        **punishment.dict(exclude={'update_at', 'record', 'handler'}),
+        handler=handler, record=record, user=record.user
+    )
+    record.is_processed = True
+    new_punishment, record = await app.state.engine.save_all([new_punishment, record])
+    return YvoJSONResponse(new_punishment.dict(exclude={"handler": {"encrypted_password", "token"}}))
+    # return YvoJSONResponse(new_punishment.dict(exclude={"handler": {"encrypted_password", "token"}}))
 
 
 @router.get("/punishment/")
@@ -65,8 +71,11 @@ async def get_punishments(
         page: int = Query(default=1, ge=1),
         per_page: int = Query(default=20, ge=1),
         sort: str = Query(default='create_at', description='must be attribute of Punishment model'),
-        desc: bool = True, rule_name: str = ""):
-
+        desc: bool = True, rule_name: str = "",
+        record_id: ObjectId = Query(default='', title="Record.id"),
+        user_id: str = Query(default='', description="May come from Record.user.user_id"),
+        project: str = Query(default='', description="May come from Record.user.project")
+):
     _sort: FieldProxy = getattr(Punishment, sort, None)
     if not _sort:
         raise RCSExcErrArg(content=dict(sort=sort))
@@ -86,6 +95,13 @@ async def get_punishments(
         queries.append(Punishment.record.in_([r.id for r in records]))
         # !!! filter across references is not supported
         # queries.append(Punishment.event.name.match(name))
+    if record_id:
+        queries.append(Punishment.record == record_id)
+    if user_id:
+        queries.append(Punishment.user.user_id == user_id)
+    if project:
+        queries.append(Punishment.user.project == project)
+
     # count to calculate total_page
     total_count = await app.state.engine.count(Punishment, *queries)
     punishments = await app.state.engine.gets(

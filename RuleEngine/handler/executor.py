@@ -1,15 +1,15 @@
 # __author__ = "Mio"
 # __email__: "liurusi.101@gmail.com"
 # created: 3/31/21 4:54 AM
+import datetime
 import json
 from typing import Optional
 
-import loguru
 from aio_pika import IncomingMessage
 from bson import ObjectId
 from schema import Schema, SchemaError, Use
 
-from model.odm import Record, Rule, Result, RuleExecuteType, PUNISH_ACTION_LEVEL_MAP, Action
+from model.odm import Record, Rule, Result, PUNISH_ACTION_LEVEL_MAP, Action, ResultInRecordStatus
 from utils.fastapi_app import app
 from utils.rule_operator import RuleParser
 from config import RULE_EXE_ROUTING_KEY
@@ -97,8 +97,8 @@ class RuleExecutorConsumer(AmqpConsumer):
         await app.state.engine.update_one(
             Record, {"_id": record.id, "results.rule_id": rule.id},
             update={"$set": {
-                "results.$.is_done": True,
-                "results.$.is_dispatched": True,
+                "results.$.status": ResultInRecordStatus.HIT if result else ResultInRecordStatus.DONE,
+                "results.$.done_time": datetime.datetime.utcnow(),
                 "results.$.result_id": result.id if result else None
             }}
         )
@@ -110,19 +110,24 @@ class RuleExecutorConsumer(AmqpConsumer):
         :return:
         """
         undone_record = await app.state.engine.gets(
-            Record, {"_id": record.id, "results.is_done": False},
+            Record, {
+                "_id": record.id,
+                "results.status": {
+                    "$in": [ResultInRecordStatus.WAIT.value, ResultInRecordStatus.DISPATCHED.value]
+                }
+            },
         )
         if not undone_record:
             # all rules' result are executed
             # find all auto punished rules to calculate FINAL punish level
-            final_punish_level = await record.final_punish_level()
+            record_punish_level: dict = record.rules_punish_level()
             final_punish_action: Optional[Action] = None
             for _level in PUNISH_ACTION_LEVEL_MAP.keys():
-                if final_punish_level >= _level:
+                if record_punish_level['done'] >= _level:
                     final_punish_action = PUNISH_ACTION_LEVEL_MAP[_level]
                 else:
                     break
-            self.logger.info(f'auto_punish::{final_punish_level}::{final_punish_action}')
+            self.logger.info(f'auto_punish::{record_punish_level}::{final_punish_action}')
             if final_punish_action:
                 # DO punish
                 pass

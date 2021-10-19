@@ -1,3 +1,4 @@
+import datetime
 from copy import deepcopy
 from typing import Optional, Set
 
@@ -89,7 +90,7 @@ class AccessConsumer(AmqpConsumer):
         )
         self.logger.info(f'no such rule effective: {rules - {_r.id for _r in _rules}}')
 
-        record.results = [ResultInRecord(rule_id=_rule.id, is_dispatched=False) for _rule in _rules]
+        record.results = [ResultInRecord(rule_id=_rule.id, punish_level=_rule.punish_level) for _rule in _rules]
         await app.state.engine.save(record)
 
         for _rule in _rules:
@@ -134,7 +135,7 @@ class AccessConsumer(AmqpConsumer):
             Record,
             Record.id == record.id,
             {"results.rule_id": rule_id},
-            update={"$set": {"results.$.is_dispatched": True}}
+            update={"$set": {"results.$.dispatch_time": datetime.datetime.utcnow()}}
         )
         self.logger.info(f"update_results::modified_count::{rst.modified_count}")
 

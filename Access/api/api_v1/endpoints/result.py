@@ -40,8 +40,9 @@ async def get_results(
         page: int = Query(default=1, ge=1),
         per_page: int = Query(default=20, ge=1),
         sort: str = Query(default='create_at', description='must be attribute of Result model'),
-        desc: bool = True, rule_name: str = ""):
-
+        desc: bool = True, rule_name: str = "",
+        record_id: ObjectId = Query(default="", description='Record.id')
+):
     _sort: FieldProxy = getattr(Result, sort, None)
     if not _sort:
         raise RCSExcErrArg(content=dict(sort=sort))
@@ -60,6 +61,8 @@ async def get_results(
         queries.append(Result.record.in_([r.id for r in records]))
         # !!! filter across references is not supported
         # queries.append(Result.event.name.match(name))
+    if record_id:
+        queries.append(Result.id == record_id)
     # count to calculate total_page
     total_count = await app.state.engine.count(Result, *queries)
     results = await app.state.engine.gets(

@@ -5,10 +5,11 @@ import datetime
 from decimal import Decimal
 from enum import Enum
 from functools import reduce
-from typing import List, Optional, Union, Set
+from typing import List, Optional, Union, Set, Dict
 
 from bson import Decimal128
 from loguru import logger
+from odmantic.bson import BSON_TYPES_ENCODERS
 from pydantic import validator, root_validator
 from pymongo import IndexModel
 from odmantic import Model, ObjectId, Reference, Field, EmbeddedModel
@@ -16,6 +17,71 @@ from odmantic import Model, ObjectId, Reference, Field, EmbeddedModel
 from utils.exceptions import RCSExcErrArg
 from utils.event_schema import EventSchema
 from utils.gtz import Dt
+    
+
+class RuleExecuteType(str, Enum):
+    manual = 'manual'
+    automatic = "automatic"
+
+
+class RulePunishLevel(int, Enum):
+    level_1 = 1
+    level_5 = 5
+    level_10 = 10
+    level_20 = 20
+    level_30 = 30
+    level_50 = 50
+
+
+class ResultInRecordStatus(str, Enum):
+    WAIT = "wait"
+    DISPATCHED = "dispatched"
+    DONE = "done"
+    HIT = "hit"
+
+
+class Status(str, Enum):
+    ON = "on"
+    OFF = "off"
+
+
+class PredefinedEventName(str, Enum):
+    withdraw = "withdraw"
+    recharge = "recharge"
+
+
+class Action(str, Enum):
+    WARNING = "WARNING"
+    REFUSE_OPERATION = "REFUSE_OPERATION"
+    BLOCK_USER = 'BLOCK_USER'
+    BAN_USER_LOGIN = "BAN_USER_LOGIN"
+    BAN_USER_WITHDRAW = "BAN_USER_LOGIN"
+
+
+class HandlerRole(str, Enum):
+    ADMIN = "admin"
+    CUSTOMER_SERVICE = "customer_service"  # 客服
+
+
+# if FINAL punish level >= MAP(key), then punish action aka. MAP(value)
+# higher level harder punishment
+PUNISH_ACTION_LEVEL_MAP = {
+    1: Action.WARNING,
+    5: Action.REFUSE_OPERATION,
+    10: Action.BAN_USER_WITHDRAW,
+    15: Action.BAN_USER_LOGIN,
+    50: Action.BLOCK_USER
+}
+
+
+def suggest_final_punishment(done_punish_level: int) -> str:
+    final_punish_action = ""
+    for _level in PUNISH_ACTION_LEVEL_MAP.keys():   # Python3.7: Guarantee ordered dict literals
+        if done_punish_level >= _level:
+            final_punish_action = PUNISH_ACTION_LEVEL_MAP[_level]
+        else:
+            break
+    return final_punish_action
 
 
 # noinspection PyAbstractClass
@@ -26,7 +92,10 @@ class Event(Model):
     rules: List[ObjectId] = Field(default_factory=list, title="关联的规则id列表")
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
-
+    
+    class Config:
+        json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
+    
     @classmethod
     def index_(cls):
         return [IndexModel('name', unique=True, name='idx_name_1')]
@@ -88,8 +157,10 @@ class User(EmbeddedModel):
 class ResultInRecord(EmbeddedModel):
     result_id: Optional[ObjectId] = Field(default=None, title='结果id')
     rule_id: ObjectId
-    is_dispatched: bool = Field(default=False, title='是否已分发到检测机')
-    is_done: bool = Field(default=False, title='是否已检测完毕')
+    status: ResultInRecordStatus = Field(default=ResultInRecordStatus.WAIT, title="检测状态")
+    punish_level: int = Field(default=0, title="风控等级")
+    dispatch_time: datetime.datetime = Field(default=datetime.datetime.min, title="分发时间")
+    done_time: datetime.datetime = Field(default=datetime.datetime.min, title="执行完成时间")
 
 
 # noinspection PyAbstractClass
@@ -98,8 +169,12 @@ class Record(Model):
     event_data: dict = Field(..., title="事件数据")
     user: User = Field(..., title="用户信息")
     results: List[ResultInRecord] = Field(default_factory=list)
+    is_processed: bool = Field(default=False, title="是否已处理")
     event_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+
+    class Config:
+        json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
 
     @classmethod
     def index_(cls):
@@ -118,34 +193,30 @@ class Record(Model):
         # noinspection PyUnresolvedReferences
         scene_rules = reduce(lambda a, b: a + b,
                              [scene.rules for scene in await app.state.engine.gets(
-                                    Scene, Scene.events.in_([self.event.id]))])
+                                 Scene, Scene.events.in_([self.event.id]))])
         return set(rules) | set(scene_rules)
 
-    async def final_punish_level(self) -> int:
+    def rules_punish_level(self) -> Dict[str, int]:
         """
         :return:
         """
-        from utils.fastapi_app import app
-        rules = [i.rule_id for i in self.results if i.result_id]
+        done_punish_level, total_punish_level = 0, 0
+        for i in self.results:
+            total_punish_level += i.punish_level
+            if i.result_id:
+                done_punish_level += i.punish_level
 
-        rst = await app.state.engine.yvo_pipeline(
-            Rule,
-            Rule.id.in_(rules),
-            # Rule.execute_type == RuleExecuteType.automatic.value,   # only automatic rule's punish_level effective
-            pipeline=[
-                {"$group": {
-                    "_id": None,
-                    "final_punish_level": {"$sum": "$punish_level"}
-                }},
-                {"$project": {
-                    "final_punish_level": 1
-                }}
-            ]
-        )
-        if rst:
-            return rst[0]['final_punish_level']
-        else:
-            return 0
+        return dict(done=done_punish_level, total=total_punish_level,
+                    final_punish_action_sugguest=suggest_final_punishment(done_punish_level))
+
+    def rules_check(self) -> Dict[ResultInRecordStatus, int]:
+        # total_rules = len(self.results)
+        # dispatched_rules = len([i for i in self.results if i.result_id])
+        _d = dict(zip(ResultInRecordStatus, [0] * len(ResultInRecordStatus)))
+        for _r in self.results:
+            _d[_r.status] += 1
+        _d['total'] = len(self.results)
+        return _d
 
     @classmethod
     async def clean(cls, record_id: Union[ObjectId, str]):
@@ -154,15 +225,11 @@ class Record(Model):
         rst = await app.state.engine.delete_many(Result, Result.record == record_id)
         logger.info(rst)
 
-    async def a_dict(self, *args, **kwargs):
-        d = self.dict(*args, **kwargs)
-        d['final_punish_level'] = await self.final_punish_level()
+    def a_dict(self, *args, **kwargs):
+        d: dict = self.dict(*args, **kwargs)
+        d['punish_level'] = self.rules_punish_level()
+        d['checks_status'] = self.rules_check()
         return d
-
-
-class Status(str, Enum):
-    ON = "on"
-    OFF = "off"
 
 
 def serial_no_generator():
@@ -173,11 +240,6 @@ def serial_no_generator():
     return int(Dt.to_ts(Dt.utc_now()) * 1000)
 
 
-class HandlerRole(str, Enum):
-    ADMIN = "admin"
-    CUSTOMER_SERVICE = "customer_service"       # 客服
-
-
 class Handler(Model):
     name: str
     role: HandlerRole = Field(..., title="用户角色")
@@ -186,27 +248,26 @@ class Handler(Model):
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
 
+    class Config:
+        json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
+
     @classmethod
     def index_(cls):
         return [IndexModel('name', unique=True, name='idx_name_1')]
 
 
-class Action(str, Enum):
-    REFUSE_OPERATION = "REFUSE_OPERATION"
-    BLOCK_USER = 'BLOCK_USER'
-    BAN_USER_LOGIN = "BAN_USER_LOGIN"
-
-
-# noinspection PyAbstractClass
 class Punishment(Model):
-    results: List[ObjectId] = Field(..., title='关联的结果')
-    action: Action = Field(..., max_length=20, title="处罚动作")
+    record: Record = Reference()
+    user: User
+    action: Action = Field(..., title="处罚动作")
     details: dict = Field(default=dict(), title="详细")
     memo: str = Field('', max_length=20, title="备注")
     handler: Handler = Reference()
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
-
+    
+    class Config:
+        json_encoders = {Decimal: lambda x: str(x)}
 
 # class Category(str, Enum):
 #     registering = "registering"
@@ -230,6 +291,9 @@ class Scene(Model):
     scene_schema: dict = Field(..., title="场景参数定义")
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+
+    class Config:
+        json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
 
     @classmethod
     def index_(cls):
@@ -275,6 +339,9 @@ class AggData(Model):
     scene: Scene = Reference()
     user: User
     agg_data: dict
+    
+    class Config:
+        json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
 
 
 # noinspection PyAbstractClass
@@ -283,28 +350,8 @@ class Config(Model):
     data: Union[List[Union[dict, str]], dict]
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
 
-
-class RuleExecuteType(str, Enum):
-    manual = 'manual'
-    automatic = "automatic"
-
-
-class RulePunishLevel(int, Enum):
-    level_1 = 1
-    level_5 = 5
-    level_10 = 10
-    level_20 = 20
-    level_30 = 30
-    level_50 = 50
-
-
-# if FINAL punish level >= level(key), then punish action[value]
-# higher level is harder punishment
-PUNISH_ACTION_LEVEL_MAP = {
-    1: Action.REFUSE_OPERATION,
-    15: Action.BAN_USER_LOGIN,
-    50: Action.BLOCK_USER
-}
+    class Config:
+        json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
 
 
 # noinspection PyAbstractClass
@@ -324,6 +371,9 @@ class Rule(Model):
     status: Status = Field(default=Status.OFF, title="状态", description="通过上下架接口更改")
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+
+    class Config:
+        json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
 
     @classmethod
     def index_(cls):
@@ -353,6 +403,7 @@ class Rule(Model):
         front-end rule JSON doc: https://tower.im/teams/713734/documents/19462/?fullscreen=true
         :return:
         """
+
         def _translate(rule: dict) -> list:
             """
             2021-08-24 modified
@@ -449,8 +500,11 @@ class Rule(Model):
 
 # noinspection PyAbstractClass
 class Result(Model):
-    rule: Rule = Reference()        # reference to rule
+    rule: Rule = Reference()  # reference to rule
     record: Record = Reference()
     processed: bool = Field(default=False, title="是否已处理")
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
+
+    class Config:
+        json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}

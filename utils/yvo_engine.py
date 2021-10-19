@@ -114,7 +114,7 @@ class YvoEngine(AIOEngine):
             _pipeline.extend(pipeline)
         else:
             _pipeline = pipeline
-        logger.debug(f"pipeline::{_pipeline}")
+        logger.info(f"pipeline::{_pipeline}")
         collection = self.get_collection(model)
         motor_cursor = collection.aggregate(_pipeline)
         return [doc async for doc in motor_cursor]
@@ -124,6 +124,15 @@ class YvoEngine(AIOEngine):
         query = AIOEngine._build_query(*queries)
         logger.debug(f"update_many::{query}::{update}")
         return await collection.update_many(filter=query, update=update)
+
+    async def count(self, model: Type[ModelType], *queries):
+        if not lenient_issubclass(model, Model):
+            raise TypeError("Can only call count with a Model class")
+        query = AIOEngine._build_query(*queries)
+        collection = self.database[model.__collection__]
+        logger.info(f"update_many::{query}")
+        count = await collection.count_documents(query)
+        return int(count)
 
     async def update_one(self, model: Type[ModelType], *queries, update: List[Dict] = None) -> UpdateResult:
         collection = self.get_collection(model)
