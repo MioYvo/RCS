@@ -1,6 +1,7 @@
 # __author__ = "Mio"
 # __email__: "liurusi.101@gmail.com"
 # created: 5/14/21 2:19 AM
+from copy import deepcopy
 from datetime import datetime
 from decimal import Decimal
 from typing import Union, List, Optional
@@ -14,7 +15,7 @@ from odmantic.query import SortExpression
 
 from Access.api.deps import Page, YvoJSONResponse
 from SceneScript.statistic.withdraw_and_recharge import total_coins_amount, withdraw_address
-from model.odm import Record, Event, User, PredefinedEventName
+from model.odm import Record, Event, User, PredefinedEventName, Rule
 from config import RCSExchangeName, DATA_PROCESSOR_ROUTING_KEY
 from utils.fastapi_app import app
 from utils.amqp_publisher import publisher
@@ -128,13 +129,23 @@ async def get_record(record_id: ObjectId):
     return YvoJSONResponse(record.a_dict())
 
 
-@router.get("/record/{record_id}/related_history", description="该条记录相关的统计信息")
-async def get_record_statistics(record_id: ObjectId = Query(..., description="记录id")):
+@router.get("/record/{record_id}/results", description="记录相关规则执行的结果")
+async def get_record_results(record_id: ObjectId = Query(..., description="记录id")):
     record = await app.state.engine.find_one(Record, Record.id == record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
 
-    pass
+    _results = deepcopy(record.results)
+    __results = []
+    for _rst in _results:
+        _rule: Optional[Rule] = await app.state.engine.find_one(Rule, Rule.id == _rst.rule_id)
+        if not _rule:
+            continue
+        __rst = {}
+        __rst.update(_rst)
+        __rst['rule'] = _rule.dict(exclude={"rule", "origin_rule", "create_at", "update_at"})
+        __results.append(__rst)
+    return YvoJSONResponse(__results)
 
 
 @router.get("/record/{record_id}/statistics/withdraw", description="提币统计数据")
