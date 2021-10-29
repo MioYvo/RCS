@@ -94,7 +94,6 @@ REDIS_HOST = getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = int(getenv('REDIS_PORT', 6379))
 REDIS_DB = int(getenv('REDIS_DB', 1))
 REDIS_PASS = getenv('REDIS_PASS', None)
-REDIS_CONN_MIN = int(getenv('REDIS_CONN_MIN', 1))
 REDIS_CONN_MAX = int(getenv('REDIS_CONN_MAX', 5))
 assert REDIS_HOST
 
