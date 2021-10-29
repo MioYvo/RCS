@@ -7,10 +7,9 @@ import secrets
 import socket
 from uuid import uuid4
 
-import aioredis
 import pymongo.errors
 from aio_pika import connect_robust, Connection, Channel
-from aioredis import Redis
+from aioredis import Redis, ConnectionPool
 from loguru import logger
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -21,7 +20,7 @@ from model.odm import Handler, HandlerRole
 from utils.exceptions import RCSException
 from utils.yvo_engine import YvoEngine
 from config import PROJECT_NAME, MONGO_URI, MONGO_DB, PIKA_URL, RCSExchangeName, AccessExchangeType, REDIS_DB, \
-    REDIS_PASS, REDIS_CONN_MIN, REDIS_CONN_MAX, REDIS_HOST, REDIS_PORT, DOCS_URL, REDOC_URL, OPENAPI_URL, ENABLE_DOC, \
+    REDIS_PASS, REDIS_CONN_MAX, REDIS_HOST, REDIS_PORT, DOCS_URL, REDOC_URL, OPENAPI_URL, ENABLE_DOC, \
     CREATE_INDEX
 from utils.error_code import ERR_DB_OPERATE_FAILED
 
@@ -86,10 +85,9 @@ async def startup_rabbit():
 
 async def startup_redis():
     logger.info('redis: connecting ...')
-    app.state.a_redis = await aioredis.create_redis_pool(
-        address=(REDIS_HOST, REDIS_PORT), db=REDIS_DB, password=REDIS_PASS,
-        encoding='utf-8', minsize=REDIS_CONN_MIN, maxsize=REDIS_CONN_MAX
-    )
+    app.state.a_redis_pool = ConnectionPool(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB,
+                                            password=REDIS_PASS, max_connections=REDIS_CONN_MAX)
+    app.state.a_redis = Redis(connection_pool=app.state.a_redis_pool)
     logger.info('redis: connected')
 
 
@@ -97,7 +95,7 @@ async def startup_mongo():
     logger.info('mongo: connecting ...')
     # noinspection PyTypeHints
     app.state.engine: YvoEngine = YvoEngine(AsyncIOMotorClient(str(MONGO_URI)), database=MONGO_DB,
-                                 a_redis_client=app.state.a_redis)
+                                            a_redis_client=app.state.a_redis)
     mongo_si = await app.state.engine.client.server_info()  # si: server_info
     logger.info(f'mongo:server_info version:{mongo_si["version"]} ok:{mongo_si["ok"]}')
     logger.info('mongo: connected')
@@ -124,7 +122,7 @@ async def startup_admin_user():
     logger.info('user admin: creating ...')
     redis: Redis = app.state.a_redis
     r_key = "startup::admin_user"
-    if not await redis.set(r_key, '1', expire=10, exist=redis.SET_IF_NOT_EXIST):
+    if not await redis.set(r_key, '1', ex=10, nx=True):
         logger.info('user admin: duplicated startup_admin_user')
         return
 
@@ -168,6 +166,6 @@ async def shutdown_event():
 
     # redis
     logger.info('redis: disconnecting ...')
-    app.state.a_redis.close()
-    await app.state.a_redis.wait_closed()
+    await app.state.a_redis_pool.disconnect()
+    # await app.state.a_redis.wait_closed()
     logger.info('redis: disconnected')
