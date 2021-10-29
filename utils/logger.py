@@ -287,6 +287,9 @@ class Logger:
     def warning(self, *msg, **kwargs):
         logger.warning(self._log_str(msg, kwargs))
 
+    def debug(self, *msg, **kwargs):
+        logger.debug(self._log_str(msg, kwargs))
+
 
 class InterceptHandler(logging.Handler):
     """

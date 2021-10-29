@@ -1,21 +1,19 @@
 import json
 import secrets
-from uuid import uuid4
-
-from fastapi import Depends, HTTPException, Form
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from math import ceil
-from dataclasses import dataclass
+from uuid import uuid4
 from typing import Any
 
-from pydantic import BaseModel, validator
-from fastapi.responses import Response
 from pysmx.SM3 import hash_msg
+from pydantic import BaseModel
+from dataclasses import dataclass
+from fastapi.responses import Response
+from fastapi import Depends, HTTPException, Form
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette.status import HTTP_401_UNAUTHORIZED, HTTP_403_FORBIDDEN
 
 from utils.fastapi_app import app
-from utils.rule_operator import RuleParser
-from model.odm import Rule, Handler, HandlerRole
+from model.odm import Handler, HandlerRole
 from utils.encoder import MyEncoder
 
 
@@ -66,17 +64,16 @@ class YvoJSONResponse(Response):
         ).encode("utf-8")
 
 
-class RuleE(Rule):
-    @validator('rule', check_fields=False)
-    def check_rule(cls, v):
-        RuleParser.validate(v)
-        return v
-
-
-security = HTTPBearer()
+security = HTTPBearer(auto_error=True)
 
 
 async def get_current_username(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Handler:
+    if not credentials:
+        raise HTTPException(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            # headers={"WWW-Authenticate": "Basic"},
+        )
     handler = await app.state.engine.find_one(Handler, Handler.token == credentials.credentials)
     if not handler:
         raise HTTPException(

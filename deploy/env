@@ -1,0 +1,6 @@
+COMPOSE_PROJECT_NAME=rcs
+RESTART_TIMEOUT=30
+# DATA path
+DATA_PATH=/data/RCS
+# secrets path
+SECRETS_PATH=/etc/RCS

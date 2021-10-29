@@ -1,4 +1,4 @@
-FROM registry.cn-hangzhou.aliyuncs.com/mio101/rcs:dev-base-v0.0.1
+FROM registry.cn-hangzhou.aliyuncs.com/mio101/rcs:dev-base-v0.0.2
 
 COPY . /app/RuleEngine/
 WORKDIR /app/RuleEngine

@@ -25,6 +25,7 @@ services:
       - --api
 #      - --api.dashboard=true
       - --api.insecure=true
+      - --entryPoints.http.address=:801
 #    deploy:
 #      placement:
 #        constraints:
@@ -37,10 +38,10 @@ services:
 #      - traefik.http.routers.rcs-proxy-http.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
       - traefik.http.routers.rcs-proxy-http.entrypoints=http
       # Define the port inside of the Docker service to use
-      - traefik.http.services.rcs-proxy.loadbalancer.server.port=80
+      - traefik.http.services.rcs-proxy.loadbalancer.server.port=801
     ports:
-    - "80:80"
-    - "8080:8080"
+    - "801:801"
+    - "12080:8080"
 
   mongo:
     image: mongo:latest
@@ -48,14 +49,14 @@ services:
 #    labels:
 #      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
-      - /data/RCS/mongo:/data/db
+      - "$DATA_PATH/mongo:/data/db"
     command: --wiredTigerCacheSizeGB 1.5
     hostname: yvo
     environment:
       MONGO_INITDB_ROOT_USERNAME: 'RCSAccess'
       MONGO_INITDB_ROOT_PASSWORD_FILE: '/run/secrets/mongo_pass'
-#    ports:
-#      - "27017:27017"
+    ports:
+      - "27077:27017"
     logging:
       options:
         max-size: "10m"
@@ -69,29 +70,32 @@ services:
     #    labels:
     #      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
-      - /data/RCS/redis:/data  # RDB file
-#    ports:
-#      - 6379:6379
+      - "$DATA_PATH/redis:/data"  # RDB file
+    ports:
+      - 6379:6379
     logging:
       options:
         max-size: "10m"
         max-file: "10"
 
   rabbit:
-    image: rabbitmq:3-management-alpine
+    build:
+      context: ../deploy/rabbitmq
+      dockerfile: rabbitmq.dockerfile
     restart: always
 #    labels:
 #      - "com.centurylinklabs.watchtower.enable=false"
     volumes:
-      - /data/RCS/rabbitmq:/var/lib/rabbitmq
+      - "$DATA_PATH/rabbitmq:/var/lib/rabbitmq"
+#      - /etc/RCS/rabbitmq.conf:/etc/rabbitmq.conf
     hostname: yvo
     environment:
-      RABBITMQ_DEFAULT_USER: 'RCSAccess'
-      RABBITMQ_DEFAULT_PASS_FILE: '/run/secrets/rabbit_pass'
-#    ports:
-#      - "5672:5672"
-#      - "25671:15671"
-#      - "25672:15672"
+      RABBITMQ_USER: 'RCSAccess'
+      RABBITMQ_PASS_FILE: '/run/secrets/rabbit_pass'
+    ports:
+      - "5672:5672"
+      - "25671:15671"
+      - "25672:15672"
     logging:
       options:
         max-size: "10m"
@@ -100,11 +104,10 @@ services:
       - rabbit_pass
 
   ac:
-    scale: 3
-    image: registry.cn-hangzhou.aliyuncs.com/mio101/rcs:ac-v0.0.1
-#    build:
-#      context: ../Access
-#      dockerfile: ../Access/Dockerfile
+    scale: 1
+    build:
+      context: ../Access
+      dockerfile: ../Access/Dockerfile
     depends_on:
       - mongo
       - redis
@@ -130,11 +133,10 @@ services:
       - mongo_pass
 
   dp:
-    scale: 2
-    image: registry.cn-hangzhou.aliyuncs.com/mio101/rcs:dp-v.0.0.1
-#    build:
-#      context: ../DataProcessor
-#      dockerfile: Dockerfile
+    scale: 1
+    build:
+      context: ../DataProcessor
+      dockerfile: Dockerfile
     depends_on:
       - mongo
       - redis
@@ -153,11 +155,10 @@ services:
       - mongo_pass
 
   reg:
-    scale: 2
-    image: registry.cn-hangzhou.aliyuncs.com/mio101/rcs:reg-v0.0.1
-#    build:
-#      context: ../RuleEngine
-#      dockerfile: Dockerfile
+    scale: 1
+    build:
+      context: ../RuleEngine
+      dockerfile: Dockerfile
     depends_on:
       - mongo
       - redis
@@ -198,6 +199,6 @@ networks:
 
 secrets:
   rabbit_pass:
-    file: /etc/RCS/rabbit_pass
+    file: "$SECRETS_PATH/rabbit_pass"
   mongo_pass:
-    file: /etc/RCS/mongo_pass
+    file: "$SECRETS_PATH/mongo_pass"

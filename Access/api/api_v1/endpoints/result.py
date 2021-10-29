@@ -13,7 +13,7 @@ from odmantic.field import FieldProxy
 from odmantic.query import SortExpression
 
 from Access.api.deps import Page, YvoJSONResponse
-from model.odm import Result, User, Record
+from model.odm import Result, User, Record, Rule
 from utils.fastapi_app import app
 from utils.exceptions import RCSExcErrArg, RCSExcNotFound
 
@@ -35,17 +35,14 @@ class ResultIn(BaseModel):
     user: User
 
 
-class ResultOut(BaseModel):
-    effect_published: bool
-
-
 @router.get("/result/")
 async def get_results(
         page: int = Query(default=1, ge=1),
         per_page: int = Query(default=20, ge=1),
         sort: str = Query(default='create_at', description='must be attribute of Result model'),
-        desc: bool = True, rule_name: str = ""):
-
+        desc: bool = True, rule_name: str = "",
+        record_id: ObjectId = Query(default="", description='Record.id')
+):
     _sort: FieldProxy = getattr(Result, sort, None)
     if not _sort:
         raise RCSExcErrArg(content=dict(sort=sort))
@@ -56,20 +53,25 @@ async def get_results(
     # build queries:
     queries = []
     if rule_name:
+        # TODO filter records by rule_name
         # noinspection PyUnresolvedReferences
-        rules = await app.state.engine.gets(Rule, Rule.name.match(event_name))
-        records = await app.state.engine.gets(Record, Record.event.in_(rules))
+        rules = await app.state.engine.gets(Rule, Rule.name.match(rule_name))
+        records = await app.state.engine.gets(Record, Record.event.in_(rules))  # FIXME
         # noinspection PyUnresolvedReferences
         queries.append(Result.record.in_([r.id for r in records]))
         # !!! filter across references is not supported
         # queries.append(Result.event.name.match(name))
+    if record_id:
+        queries.append(Result.id == record_id)
     # count to calculate total_page
     total_count = await app.state.engine.count(Result, *queries)
     results = await app.state.engine.gets(
         Result, *queries, sort=sort, skip=skip, limit=limit, return_doc=False)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(results))
     return YvoJSONResponse(
-        dict(content=[i.dict() for i in results], meta=p.meta_pagination()),
+        dict(content=[
+            i.dict(exclude={'rule': {'rule', 'origin_rule'}, 'record': {'event': {'rcs_schema'}}}
+                   ) for i in results], meta=p.meta_pagination()),
     )
 
 
