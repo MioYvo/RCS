@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Union, List, Optional
 
+from fastapi.params import Path
 from pydantic import BaseModel, Field as PDField
 from fastapi import APIRouter, Query
 from odmantic import ObjectId
@@ -106,7 +107,7 @@ async def get_records(
         # queries.append(Record.user.user_id == _record.user.user_id)
         # queries.append(Record.user.project == _record.user.project)
     if not all_data_view:
-        queries.append({"results.1": {"$exists": True}})
+        queries.append({"results": {"$ne": [], "$elemMatch": {"result_id": {"$ne": None}}}})
     if is_processed is not None:
         queries.append(Record.is_processed == is_processed)
 
@@ -130,7 +131,11 @@ async def get_record(record_id: ObjectId):
 
 
 @router.get("/record/{record_id}/results", description="记录相关规则执行的结果")
-async def get_record_results(record_id: ObjectId = Query(..., description="记录id")):
+async def get_record_results(
+        record_id: ObjectId = Path(..., description="记录id"),
+        all_data_view: bool = Query(default=False, description="显示所有")
+
+):
     record = await app.state.engine.find_one(Record, Record.id == record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
@@ -138,6 +143,8 @@ async def get_record_results(record_id: ObjectId = Query(..., description="记�
     _results = deepcopy(record.results)
     __results = []
     for _rst in _results:
+        if not _rst.result_id:
+            continue
         _rule: Optional[Rule] = await app.state.engine.find_one(Rule, Rule.id == _rst.rule_id)
         if not _rule:
             continue
