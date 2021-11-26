@@ -39,14 +39,14 @@ class Dt:
         return dt
 
     @classmethod
-    def from_ts(cls, ts: Union[int, str, float]):
+    def from_ts(cls, ts: Union[int, str, float], tz=utc):
         if isinstance(ts, str):
             ts = float(ts)
 
         if int(math.log10(ts) + 1) == cls.precision_ms:
-            return cls.add_tz(datetime.fromtimestamp(ts / 1000), tz=utc)
+            return cls.add_tz(datetime.fromtimestamp(ts / 1000), tz=tz)
         else:
-            return cls.add_tz(datetime.fromtimestamp(ts), tz=utc)
+            return cls.add_tz(datetime.fromtimestamp(ts), tz=tz)
 
     @classmethod
     def to_str(cls, dt: datetime, _format=UTC_DATETIME_FORMAT, iso_format=False):
@@ -59,7 +59,7 @@ class Dt:
     def add_tz(cls, _dt, tz=Optional[DstTzInfo]):
         if not tz:
             tz = local_timezone
-        return tz.localize(_dt)
+        return _dt.replace(tzinfo=tz)
 
     @classmethod
     def convert_tz(cls, _dt, to_tz: DstTzInfo, from_tz=None):

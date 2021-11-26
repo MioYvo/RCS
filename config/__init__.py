@@ -15,6 +15,7 @@ RCSExchangeName = getenv('RCSExchangeName', 'RCS')
 AccessExchangeType = ExchangeType(getenv('AccessExchangeType', 'direct'))
 DATA_PROCESSOR_ROUTING_KEY = getenv('DATA_PROCESSOR_ROUTING_KEY', 'DataProcessor')
 RULE_EXE_ROUTING_KEY = getenv('RULE_EXE_ROUTING_KEY', 'RuleEngineExe')
+RUN_HOST = getenv("RUN_HOST", "traefik")
 RUN_PORT = int(getenv('RUN_PORT', '8081'))
 CACHE_NAMESPACE = getenv('CACHE_NAMESPACE', 'RCS')
 DOCS_URL = getenv('DOCS_URL', '/docs')
@@ -22,6 +23,11 @@ OPENAPI_URL = getenv('OPENAPI_URL', '/openapi.json')
 REDOC_URL = getenv('REDOC_URL', '/redoc')
 ENABLE_DOC = bool(int(getenv('ENABLE_DOC', 0)))
 CREATE_INDEX = bool(int(getenv('CREATE_INDEX', 0)))
+
+# Traefik
+TRAEFIK_HOST = getenv("TRAEFIK_HOST", "traefik")
+TRAEFIK_HTTP_PORT = int(getenv("TRAEFIK_HTTP_PORT", 801))
+# LOG
 LOG_FILE_PATH = getenv('LOG_FILE_PATH', '/app/log/')
 LOG_FILENAME = getenv('LOG_FILENAME', f"{PROJECT_NAME}.log")
 LOG_FILE_RETENTION = getenv('LOG_FILE_RETENTION', '7 days')
@@ -138,3 +144,9 @@ user_agent = getenv('http_clients_default_user_agent',
 #     user_agent=user_agent
 # ))
 # a_http_client = AsyncHTTPClient()
+
+# Consul    "Token@Host:Port Token2@Host2:Port2"
+CONSUL_CONN = getenv('CONSUL_CONN', 'vdex#10.17.5.131:8500')
+# # self consul config
+CONSUL_SERVICE_NAME = getenv('CONSUL_SERVICE_NAME', 'rcs')
+CONSUL_SERVICE_ID = getenv('CONSUL_SERVICE_ID', 'rcs_1')

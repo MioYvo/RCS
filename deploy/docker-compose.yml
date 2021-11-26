@@ -8,40 +8,38 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command:
-      # Enable Docker in Traefik, so that it reads labels from Docker services
-      - --providers.docker
-      # Add a constraint to only use services with the label for this stack
-      # from the env var TRAEFIK_TAG
-#      - --providers.docker.constraints=Label(`traefik.constraint-label-stack`, `${TRAEFIK_TAG?Variable not set}`)
-      # Do not expose all Docker services, only the ones explicitly exposed
-      - --providers.docker.exposedbydefault=false
-      # Enable Docker Swarm mode
-#      - --providers.docker.swarmmode
-      # Enable the access log, with HTTP requests
-#      - --accesslog
-      # Enable the Traefik log, for configurations and errors
-      - --log
-      # Enable the Dashboard and API
-      - --api
-#      - --api.dashboard=true
-      - --api.insecure=true
-      - --entryPoints.http.address=:801
-#    deploy:
-#      placement:
-#        constraints:
-#          - node.role == manager
-    labels:
-      # Enable Traefik for this service, to make it available in the public network
-      - traefik.enable=true
-      # Use the traefik-public network (declared below)
-      - traefik.docker.network=traefik-public
-#      - traefik.http.routers.rcs-proxy-http.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
-      - traefik.http.routers.rcs-proxy-http.entrypoints=http
-      # Define the port inside of the Docker service to use
-      - traefik.http.services.rcs-proxy.loadbalancer.server.port=801
+      [
+        # api
+        "--api",
+        "--api.dashboard=true",
+        "--api.insecure=true",
+        # log
+        "--log",
+        "--log.level=info",
+        "--accesslog=false",
+        # docker
+        "--providers.docker",
+        "--providers.docker.exposedbydefault=false",
+        # entryPoints
+        "--entryPoints.http.address=:${TRAEFIK_HTTP_PORT}",
+      ]
+#    labels:
+#      # Enable Traefik for this service, to make it available in the public network
+#      - traefik.enable=true
+#      # Use the traefik-public network (declared below)
+#      - traefik.docker.network=traefik-public
+##      - traefik.http.routers.rcs-proxy-http.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
+#      - traefik.http.routers.rcs-proxy-http.entrypoints=http
+#      # Define the port inside of the Docker service to use
+#      - traefik.http.services.rcs-proxy.loadbalancer.server.port=801
     ports:
-    - "801:801"
-    - "12080:8080"
+    - "${TRAEFIK_HTTP_PORT}:${TRAEFIK_HTTP_PORT}"
+    - "${TRAEFIK_DASHBOARD_OUTER_PORT}:8080"   # for traefik dashboard
+    - "${AC_OUTER_PORT}:${AC_INNER_PORT}"  # Tron
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "1"
 
   mongo:
     image: mongo:latest
@@ -104,7 +102,7 @@ services:
       - rabbit_pass
 
   ac:
-    scale: 1
+    scale: ${TRON_SCALE}
     build:
       context: ../Access
       dockerfile: ../Access/Dockerfile
@@ -124,13 +122,19 @@ services:
 #      DOC_URL: localhost
       WEB_CONCURRENCY: 1  # process num
       CREATE_INDEX: 1
+      RUN_HOST: ${TRAEFIK_HOST}
+      RUN_PORT: ${AC_INNER_PORT}
     labels:
       - traefik.enable=true
       - traefik.http.routers.rcs-backend-http.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`) || PathPrefix(`/openapi.json`)
-      - traefik.http.services.rcs-backend.loadbalancer.server.port=80
+      - traefik.http.services.rcs-backend.loadbalancer.server.port=${AC_INNER_PORT}
     secrets:
       - rabbit_pass
       - mongo_pass
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "1"
 
   dp:
     scale: 1
@@ -153,6 +157,10 @@ services:
     secrets:
       - rabbit_pass
       - mongo_pass
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "1"
 
   reg:
     scale: 1
@@ -175,6 +183,10 @@ services:
     secrets:
       - rabbit_pass
       - mongo_pass
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "1"
 
 #  frontend:
 #    image: '${DOCKER_IMAGE_FRONTEND?Variable not set}:${TAG-latest}'
