@@ -5,13 +5,11 @@ from pathlib import Path
 import uvicorn
 from loguru import logger
 from starlette.middleware.cors import CORSMiddleware
-
-from config.clients import consuls
-
 sys.path.insert(0, str(Path().absolute().parent))
 
 from config import PROJECT_NAME, LOG_FILE_PATH, LOG_FILENAME, LOG_FILE_ROTATION, LOG_FILE_RETENTION, \
-    CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID, TRAEFIK_HOST, TRAEFIK_HTTP_PORT
+    CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID, TRAEFIK_HOST, TRAEFIK_HTTP_PORT, RUN_PORT
+from config.clients import consuls
 from utils.fastapi_app import app
 from utils.logger import format_record, InterceptHandler
 logging.getLogger().handlers = [InterceptHandler()]
@@ -66,4 +64,5 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     logger.info(f"{PROJECT_NAME} starting")
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, access_log=True)
+    # must be 80, same as Dockerfile
+    uvicorn.run("main:app", host="0.0.0.0", port=80, access_log=True)

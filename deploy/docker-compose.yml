@@ -2,9 +2,9 @@ version: "3.3"
 services:
   proxy:
     image: traefik
-    networks:
-      - traefik-public
-      - default
+#    networks:
+#      - traefik-public
+#      - default
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     command:
@@ -16,26 +16,16 @@ services:
         # log
         "--log",
         "--log.level=info",
-        "--accesslog=false",
+        "--accesslog=true",
         # docker
         "--providers.docker",
         "--providers.docker.exposedbydefault=false",
         # entryPoints
         "--entryPoints.http.address=:${TRAEFIK_HTTP_PORT}",
       ]
-#    labels:
-#      # Enable Traefik for this service, to make it available in the public network
-#      - traefik.enable=true
-#      # Use the traefik-public network (declared below)
-#      - traefik.docker.network=traefik-public
-##      - traefik.http.routers.rcs-proxy-http.rule=Host(`${DOMAIN?Variable not set}`) || Host(`www.${DOMAIN?Variable not set}`)
-#      - traefik.http.routers.rcs-proxy-http.entrypoints=http
-#      # Define the port inside of the Docker service to use
-#      - traefik.http.services.rcs-proxy.loadbalancer.server.port=801
     ports:
     - "${TRAEFIK_HTTP_PORT}:${TRAEFIK_HTTP_PORT}"
     - "${TRAEFIK_DASHBOARD_OUTER_PORT}:8080"   # for traefik dashboard
-    - "${AC_OUTER_PORT}:${AC_INNER_PORT}"  # Tron
     logging:
       options:
         max-size: "10m"
@@ -70,7 +60,7 @@ services:
     volumes:
       - "$DATA_PATH/redis:/data"  # RDB file
     ports:
-      - 6379:6379
+      - "6679:6379"
     logging:
       options:
         max-size: "10m"
@@ -102,7 +92,7 @@ services:
       - rabbit_pass
 
   ac:
-    scale: ${TRON_SCALE}
+    scale: ${AC_SCALE}
     build:
       context: ../Access
       dockerfile: ../Access/Dockerfile
@@ -123,11 +113,12 @@ services:
       WEB_CONCURRENCY: 1  # process num
       CREATE_INDEX: 1
       RUN_HOST: ${TRAEFIK_HOST}
-      RUN_PORT: ${AC_INNER_PORT}
     labels:
       - traefik.enable=true
       - traefik.http.routers.rcs-backend-http.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`) || PathPrefix(`/openapi.json`)
-      - traefik.http.services.rcs-backend.loadbalancer.server.port=${AC_INNER_PORT}
+#      - traefik.http.services.rcs-backend.loadbalancer.server.port=${AC_INNER_PORT}
+    expose:
+      - ${AC_PORT}
     secrets:
       - rabbit_pass
       - mongo_pass
@@ -137,7 +128,7 @@ services:
         max-file: "1"
 
   dp:
-    scale: 1
+    scale: ${DP_SCALE}
     build:
       context: ../DataProcessor
       dockerfile: Dockerfile
@@ -163,7 +154,7 @@ services:
         max-file: "1"
 
   reg:
-    scale: 1
+    scale: ${REG_SCALE}
     build:
       context: ../RuleEngine
       dockerfile: Dockerfile
@@ -202,8 +193,9 @@ services:
 #        - traefik.http.services.rcs-frontend.loadbalancer.server.port=80
 
 
-networks:
-  traefik-public:
+#networks:
+    # use for other project used exists traefik, one traefik contains all backend
+#  traefik-public:
     # Allow setting it to false for testing
 #    external: ${TRAEFIK_PUBLIC_NETWORK_IS_EXTERNAL-true}
 #  default:
