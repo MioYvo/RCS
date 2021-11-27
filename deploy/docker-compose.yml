@@ -1,0 +1,178 @@
+version: "3.3"
+services:
+  proxy:
+    image: traefik:2.5.4
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      [
+        # api
+        "--api",
+        "--api.dashboard=true",
+        "--api.insecure=true",
+        # log
+        "--log",
+        "--log.level=info",
+        "--accesslog=true",
+        # docker
+        "--providers.docker",
+        "--providers.docker.exposedbydefault=false",
+        # entryPoints
+        "--entryPoints.http.address=:${TRAEFIK_HTTP_PORT}",
+      ]
+    ports:
+    - "${TRAEFIK_HTTP_PORT}:${TRAEFIK_HTTP_PORT}"
+    - "${TRAEFIK_DASHBOARD_PORT}:8080"   # for traefik dashboard
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "1"
+
+  rabbit:
+    image: registry.cn-hangzhou.aliyuncs.com/mio101/rabbitmq_init_auth:1.0
+    restart: always
+    volumes:
+      - "$DATA_PATH/rabbitmq:/var/lib/rabbitmq"
+    hostname: rcs
+    environment:
+      RABBITMQ_USER: ${PIKA_USER}
+      RABBITMQ_PASS_FILE: '/run/secrets/rabbit_pass'
+    ports:
+      - "5672:5672"
+      - "25671:15671"
+      - "25672:15672"
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "10"
+    secrets:
+      - rabbit_pass
+
+  ac:
+    scale: ${AC_SCALE}
+    image: SOME_NAME_AC:TAG
+    depends_on:
+      # - mongo
+      # - redis
+      - rabbit
+    environment:
+      PYTHONUNBUFFERED: 1
+      # RabbitMQ
+      PIKA_HOST: ${PIKA_HOST}
+      PIKA_USER: ${PIKA_USER}
+      PIKA_PORT: ${PIKA_PORT}
+      PIKA_PASS_FILE: /run/secrets/rabbit_pass
+      # MongoDB
+      MONGO_HOST: ${MONGO_HOST}
+      MONGO_PORT: ${MONGO_PORT}
+      MONGO_USER: ${MONGO_USER}
+      MONGO_PASS_FILE: /run/secrets/mongo_pass
+      MONGO_DB: ${MONGO_DB}
+      # Redis
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DB: ${REDIS_DB}
+      REDIS_PASS_FILE: /run/secrets/redis_pass
+      # traefik host and port, for consul service register
+      TRAEFIK_HOST: ${TRAEFIK_HOST}
+      TRAEFIK_HTTP_PORT: ${TRAEFIK_HTTP_PORT}
+      # project
+      PROJECT_NAME: AC
+      ENABLE_DOC: 1
+      WEB_CONCURRENCY: 1  # process num for gunicorn.conf
+      CREATE_INDEX: 1
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.rcs-backend-http.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`) || PathPrefix(`/openapi.json`)
+    expose:
+      - ${AC_PORT}
+    secrets:
+      - rabbit_pass
+      - mongo_pass
+      - redis_pass
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "1"
+
+  dp:
+    scale: ${DP_SCALE}
+    image: SOME_NAME_DP:TAG
+    depends_on:
+      # - mongo
+      # - redis
+      - rabbit
+    environment:
+      PYTHONUNBUFFERED: 1
+      # RabbitMQ
+      PIKA_HOST: ${PIKA_HOST}
+      PIKA_USER: ${PIKA_USER}
+      PIKA_PORT: ${PIKA_PORT}
+      PIKA_PASS_FILE: /run/secrets/rabbit_pass
+      # MongoDB
+      MONGO_HOST: ${MONGO_HOST}
+      MONGO_PORT: ${MONGO_PORT}
+      MONGO_USER: ${MONGO_USER}
+      MONGO_PASS_FILE: /run/secrets/mongo_pass
+      MONGO_DB: ${MONGO_DB}
+      # Redis
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DB: ${REDIS_DB}
+      REDIS_PASS_FILE: /run/secrets/redis_pass
+      # project
+      PROJECT_NAME: DP
+      WEB_CONCURRENCY: 1 # process num for gunicorn.conf
+    secrets:
+      - rabbit_pass
+      - mongo_pass
+      - redis_pass
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "1"
+
+  reg:
+    scale: ${REG_SCALE}
+    image: SOME_NAME_REG:TAG
+    depends_on:
+      # - mongo
+      # - redis
+      - rabbit
+    environment:
+      PYTHONUNBUFFERED: 1
+      # RabbitMQ
+      PIKA_HOST: ${PIKA_HOST}
+      PIKA_USER: ${PIKA_USER}
+      PIKA_PORT: ${PIKA_PORT}
+      PIKA_PASS_FILE: /run/secrets/rabbit_pass
+      # MongoDB
+      MONGO_HOST: ${MONGO_HOST}
+      MONGO_PORT: ${MONGO_PORT}
+      MONGO_USER: ${MONGO_USER}
+      MONGO_PASS_FILE: /run/secrets/mongo_pass
+      MONGO_DB: ${MONGO_DB}
+      # Redis
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DB: ${REDIS_DB}
+      REDIS_PASS_FILE: /run/secrets/redis_pass
+      # project
+      PROJECT_NAME: REG
+      WEB_CONCURRENCY: 1  # process num for gunicorn.conf
+    secrets:
+      - rabbit_pass
+      - mongo_pass
+      - redis_pass
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "1"
+
+secrets:
+  rabbit_pass:
+    file: "$SECRETS_PATH/rabbit_pass"
+  mongo_pass:
+    file: "$SECRETS_PATH/mongo_pass"
+  redis_pass:
+    file: "$SECRETS_PATH/mongo_pass"
