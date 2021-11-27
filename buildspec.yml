@@ -16,17 +16,17 @@ phases:
       - echo Build started on `date`
       - echo Building the Docker image...
       - docker build -f Access/Dockerfile -t IMAGE_REPO_NAME  .
-      - docker build -f DataProcessor/Dockerfile -t IMAGE_REPO_NAME-DP .
-      - docker build -f RuleEngine/Dockerfile -t IMAGE_REPO_NAME-REG .
+      - docker build -f DataProcessor/Dockerfile -t IMAGE_REPO_NAME_DP .
+      - docker build -f RuleEngine/Dockerfile -t IMAGE_REPO_NAME_REG .
 
       - docker tag $IMAGE_REPO_NAME $IMAGE_REPO_NAME:$IMAGE_TAG
-      - docker tag $IMAGE_REPO_NAME-DP $IMAGE_REPO_NAME-DP:$IMAGE_TAG
-      - docker tag $IMAGE_REPO_NAME-REG $IMAGE_REPO_NAME-REG:$IMAGE_TAG
+      - docker tag $IMAGE_REPO_NAME_DP $IMAGE_REPO_NAME_DP:$IMAGE_TAG
+      - docker tag $IMAGE_REPO_NAME_REG $IMAGE_REPO_NAME_REG:$IMAGE_TAG
   post_build:
     commands:
       - echo Build completed on `date`
       - echo Pushing the Docker images...
       - docker push $IMAGE_REPO_NAME:$IMAGE_TAG
-      - docker push $IMAGE_REPO_NAME-DP:$IMAGE_TAG
-      - docker push $IMAGE_REPO_NAME-REG:$IMAGE_TAG
+      - docker push $IMAGE_REPO_NAME_DP:$IMAGE_TAG
+      - docker push $IMAGE_REPO_NAME_REG:$IMAGE_TAG
       - echo Writing image definitions file...
