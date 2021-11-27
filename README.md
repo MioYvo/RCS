@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# RCS风控系统（PY）
-=======
 # RCS Risk Control System 风险控制系统
 
 ## 项目结构
@@ -14,4 +11,3 @@
    1. `mongodump --port 27017 -u "RCSAccess"  -p "c972745e8083bc5226e07f54f4d2b8ab71db3425ee2dac05811c162759628171" --authenticationDatabase "admin" --db RCSAccess --collection scene --archive=gz --gizp`
    2. `mongorestore --uri="mongodb://USERNAME:PASSWORD@HOST:PORT" --archive=backup.tgz`
 2. MongoDB 数据存储的时区（timezone）是UTC，所以使用时记得转换（工具`utils.gtz.Dt`）
->>>>>>> 7891de4f4b76cbb7f6457534b2df47dfcf22b035
