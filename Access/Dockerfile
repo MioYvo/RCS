@@ -1,5 +1,4 @@
-#FROM mio101/rcs:base-v0.0.1
-FROM registry.cn-hangzhou.aliyuncs.com/mio101/rcs:dev-base-v0.0.2
+FROM 289631370416.dkr.ecr.us-east-2.amazonaws.com/rcs/rcs_pyservice/basics:1
 
 COPY . /app/Access/
 WORKDIR /app/Access
