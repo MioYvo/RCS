@@ -15,9 +15,9 @@ phases:
     commands:
       - echo Build started on `date`
       - echo Building the Docker image...
-      - docker build -f Access/Dockerfile -t $IMAGE_REPO_NAME  .
-      - docker build -f DataProcessor/Dockerfile -t $IMAGE_REPO_NAME_DP .
-      - docker build -f RuleEngine/Dockerfile -t $IMAGE_REPO_NAME_REG .
+      - docker build -f Access/Dockerfile -t $IMAGE_REPO_NAME Access
+      - docker build -f DataProcessor/Dockerfile -t $IMAGE_REPO_NAME_DP DataProcessor
+      - docker build -f RuleEngine/Dockerfile -t $IMAGE_REPO_NAME_REG RuleEngine
 
       - docker tag $IMAGE_REPO_NAME $IMAGE_REPO_NAME:$IMAGE_TAG
       - docker tag $IMAGE_REPO_NAME_DP $IMAGE_REPO_NAME_DP:$IMAGE_TAG
