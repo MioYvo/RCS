@@ -102,6 +102,11 @@ REDIS_DB = int(getenv('REDIS_DB', 1))
 REDIS_PASS = getenv('REDIS_PASS', None)
 REDIS_CONN_MAX = int(getenv('REDIS_CONN_MAX', 5))
 assert REDIS_HOST
+if not REDIS_PASS:
+    REDIS_PASS_FILE = getenv('REDIS_PASS_FILE')
+    if REDIS_PASS_FILE:
+        with open(REDIS_PASS_FILE) as f:
+            REDIS_PASS = f.read().strip()
 
 
 # pika
