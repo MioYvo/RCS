@@ -278,8 +278,8 @@ class Logger:
     def info(self, *msg, **kwargs):
         logger.info(self._log_str(msg, kwargs))
 
-    def error(self, *msg, exc_info=False, **kwargs):
-        logger.error(self._log_str(msg, kwargs), exc_info=exc_info)
+    def error(self, *msg, **kwargs):
+        logger.error(self._log_str(msg, kwargs))
 
     def exceptions(self, *msg, **kwargs):
         self.error(*msg, exc_info=True, **kwargs)

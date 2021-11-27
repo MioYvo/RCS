@@ -48,12 +48,45 @@ services:
     secrets:
       - rabbit_pass
 
+  mongo:
+     image: mongo:latest
+     restart: always
+     volumes:
+       - "$DATA_PATH/mongo:/data/db"
+     command: --wiredTigerCacheSizeGB 1.5
+     hostname: yvo
+     environment:
+       MONGO_INITDB_ROOT_USERNAME: 'RCSAccess'
+       MONGO_INITDB_ROOT_PASSWORD_FILE: '/run/secrets/mongo_pass'
+     ports:
+       - "27077:27017"
+     logging:
+       options:
+         max-size: "10m"
+         max-file: "10"
+     secrets:
+       - mongo_pass
+
+  redis:
+     image: redis:alpine
+     restart: always
+     volumes:
+       - "$DATA_PATH/redis:/data"  # RDB file
+#     ports:
+#       - "6679:6379"
+     logging:
+       options:
+         max-size: "10m"
+         max-file: "10"
+
   ac:
     scale: ${AC_SCALE}
-    image: SOME_NAME_AC:TAG
+    build:
+      context: ../Access
+      dockerfile: ../Access/Dockerfile
     depends_on:
-      # - mongo
-      # - redis
+      - mongo
+      - redis
       - rabbit
     environment:
       PYTHONUNBUFFERED: 1
@@ -98,10 +131,12 @@ services:
 
   dp:
     scale: ${DP_SCALE}
-    image: SOME_NAME_DP:TAG
+    build:
+      context: ../DataProcessor
+      dockerfile: ../DataProcessor/Dockerfile
     depends_on:
-      # - mongo
-      # - redis
+      - mongo
+      - redis
       - rabbit
     environment:
       PYTHONUNBUFFERED: 1
@@ -135,10 +170,12 @@ services:
 
   reg:
     scale: ${REG_SCALE}
-    image: SOME_NAME_REG:TAG
+    build:
+      context: ../RuleEngine
+      dockerfile: ../RuleEngine/Dockerfile
     depends_on:
-      # - mongo
-      # - redis
+      - mongo
+      - redis
       - rabbit
     environment:
       PYTHONUNBUFFERED: 1

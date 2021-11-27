@@ -74,11 +74,8 @@ class Consul(base.Consul):
 
     async def register(self, name, service_id, address, port, interval_seconds=10, token=''):
         check = {
-            # "id": service_id,
-            # "name": name,
-            "http": f"{address}:{port}",
-            # "grpc_use_tls": False,
-            "interval": f"{interval_seconds}s"
+            "http": f"http://{address}:{port}/api/health",
+            "interval": f"{interval_seconds}s",
         }
         tags = ['rcs', 'http']
         await self.agent.service.register(name, service_id, address, port, tags=tags, check=check, token=token)

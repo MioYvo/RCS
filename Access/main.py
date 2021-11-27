@@ -8,7 +8,7 @@ from starlette.middleware.cors import CORSMiddleware
 sys.path.insert(0, str(Path().absolute().parent))
 
 from config import PROJECT_NAME, LOG_FILE_PATH, LOG_FILENAME, LOG_FILE_ROTATION, LOG_FILE_RETENTION, \
-    CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID, TRAEFIK_HOST, TRAEFIK_HTTP_PORT, RUN_PORT
+    CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID, TRAEFIK_HOST, TRAEFIK_HTTP_PORT
 from config.clients import consuls
 from utils.fastapi_app import app
 from utils.logger import format_record, InterceptHandler
@@ -24,6 +24,7 @@ logger.add(Path(LOG_FILE_PATH) / LOG_FILENAME, retention=LOG_FILE_RETENTION, rot
 
 
 from Access.api.api_v1.api import api_router
+from Access.api.health import router as health_router
 app.docs_url = None
 app.add_middleware(
     CORSMiddleware,
@@ -34,6 +35,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(health_router, prefix="/api", tags=["health"])
 
 
 async def init_consul():
@@ -65,4 +67,4 @@ async def shutdown_event():
 if __name__ == "__main__":
     logger.info(f"{PROJECT_NAME} starting")
     # must be 80, same as Dockerfile
-    uvicorn.run("main:app", host="0.0.0.0", port=80, access_log=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8080, access_log=True)

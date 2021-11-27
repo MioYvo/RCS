@@ -9,7 +9,7 @@ from urllib.parse import urljoin
 from fastapi import APIRouter
 from pydantic import BaseModel, Field as PDField
 
-from utils.exceptions import RCSExcErrArg
+from utils.exceptions import RCSExcErrArg, RCSExcNotFound
 from utils.logger import Logger
 from config.clients import consuls, httpx_client
 from utils.u_consul import Consul
@@ -60,6 +60,9 @@ async def user_info(project_name: ProjectType, user_id: str):
         raise RCSExcErrArg(content=f"{project_name=:} php service not found")
 
     url = urljoin(f"http://{php_address}", "/vdexapi/user_mg")
-    logger.info(url)
     ret = await httpx_client.get(url, params=dict(account=user_id))
-    return ret.json()['data']
+    try:
+        return UserInfo(**ret.json()['data'])
+    except Exception as e:
+        logger.error(e, ret=ret.content)
+        raise RCSExcNotFound(entity_id=user_id)

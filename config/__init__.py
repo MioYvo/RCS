@@ -107,6 +107,8 @@ if not REDIS_PASS:
     if REDIS_PASS_FILE:
         with open(REDIS_PASS_FILE) as f:
             REDIS_PASS = f.read().strip()
+            if not REDIS_PASS:
+                REDIS_PASS = None
 
 
 # pika

@@ -7,8 +7,9 @@ from config import PROJECT_NAME
 
 def parse_consul_config(conf: str) -> dict:
     consul_conf = conf.split()
-    assert consul_conf
     consuls_ = {}
+    if not consul_conf:
+        return consuls_
     for cc in consul_conf:
         # "vdex#123@10.17.5.131:8500"
         rst = cc.rsplit(':')
