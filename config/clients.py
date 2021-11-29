@@ -25,7 +25,6 @@ io_loop: Union[AbstractEventLoop, BaseEventLoop] = ioloop
 
 m_client: AsyncIOMotorClient = AsyncIOMotorClient(
     str(MONGO_URI), io_loop=io_loop,
-    retryWrites=False   # For Amazon DocumentDB
 )
 m_db: AgnosticDatabase = getattr(m_client, MONGO_DB)
 event_collection: AgnosticCollection = getattr(m_db, MONGO_COLLECTION_EVENT)

@@ -55,7 +55,10 @@ if not MONGO_PASS:
         with open(MONGO_PASS_FILE) as f:
             MONGO_PASS = f.read().strip()
 MONGO_URI = URL.build(scheme='mongodb', host=MONGO_HOST, port=MONGO_PORT, user=MONGO_USER, password=MONGO_PASS,
-                      query=dict(MAXPoolSize=MONGO_MAXPoolSize))
+                      query=dict(
+                          MAXPoolSize=MONGO_MAXPoolSize,
+                          retryWrites='false'     # FOR amazon documentDB
+                      ))
 
 
 # MariaDB

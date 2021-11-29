@@ -17,8 +17,6 @@ logger.configure(
 logging.getLogger("uvicorn.access").handlers = [InterceptHandler()]
 logger.add(Path(LOG_FILE_PATH) / LOG_FILENAME, retention=LOG_FILE_RETENTION, rotation=LOG_FILE_ROTATION)
 
-# logging.getLogger("uvicorn.error").handlers = [InterceptHandler()]
-# logging.getLogger("uvicorn").handlers = [InterceptHandler()]
 
 
 @app.on_event("startup")
