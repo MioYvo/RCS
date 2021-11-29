@@ -48,24 +48,24 @@ services:
     secrets:
       - rabbit_pass
 
-  mongo:
-     image: mongo:latest
-     restart: always
-     volumes:
-       - "$DATA_PATH/mongo:/data/db"
-     command: --wiredTigerCacheSizeGB 1.5
-     hostname: yvo
-     environment:
-       MONGO_INITDB_ROOT_USERNAME: 'RCSAccess'
-       MONGO_INITDB_ROOT_PASSWORD_FILE: '/run/secrets/mongo_pass'
-     ports:
-       - "27077:27017"
-     logging:
-       options:
-         max-size: "10m"
-         max-file: "10"
-     secrets:
-       - mongo_pass
+#  mongo:
+#     image: mongo:latest
+#     restart: always
+#     volumes:
+#       - "$DATA_PATH/mongo:/data/db"
+#     command: --wiredTigerCacheSizeGB 1.5
+#     hostname: yvo
+#     environment:
+#       MONGO_INITDB_ROOT_USERNAME: 'RCSAccess'
+#       MONGO_INITDB_ROOT_PASSWORD_FILE: '/run/secrets/mongo_pass'
+#     ports:
+#       - "27077:27017"
+#     logging:
+#       options:
+#         max-size: "10m"
+#         max-file: "10"
+#     secrets:
+#       - mongo_pass
 
   redis:
      image: redis:alpine
@@ -83,9 +83,9 @@ services:
     scale: ${AC_SCALE}
     build:
       context: ../Access
-      dockerfile: ../Access/Dockerfile
+      dockerfile: ../Access/dev.Dockerfile
     depends_on:
-      - mongo
+#      - mongo
       - redis
       - rabbit
     environment:
@@ -133,9 +133,9 @@ services:
     scale: ${DP_SCALE}
     build:
       context: ../DataProcessor
-      dockerfile: ../DataProcessor/Dockerfile
+      dockerfile: ../DataProcessor/dev.Dockerfile
     depends_on:
-      - mongo
+#      - mongo
       - redis
       - rabbit
     environment:
@@ -172,9 +172,9 @@ services:
     scale: ${REG_SCALE}
     build:
       context: ../RuleEngine
-      dockerfile: ../RuleEngine/Dockerfile
+      dockerfile: ../RuleEngine/dev.Dockerfile
     depends_on:
-      - mongo
+#      - mongo
       - redis
       - rabbit
     environment:

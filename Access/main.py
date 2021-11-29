@@ -8,20 +8,28 @@ from starlette.middleware.cors import CORSMiddleware
 sys.path.insert(0, str(Path().absolute().parent))
 
 from config import PROJECT_NAME, LOG_FILE_PATH, LOG_FILENAME, LOG_FILE_ROTATION, LOG_FILE_RETENTION, \
-    CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID, TRAEFIK_HOST, TRAEFIK_HTTP_PORT
+    CONSUL_SERVICE_NAME, CONSUL_SERVICE_ID, TRAEFIK_HOST, TRAEFIK_HTTP_PORT, LOG_LEVEL
 from config.clients import consuls
 from utils.fastapi_app import app
 from utils.logger import format_record, InterceptHandler
+
+
+def filter_out_health_check(record) -> bool:
+    return "api/health" not in record['message']
+
+
 logging.getLogger().handlers = [InterceptHandler()]
 logger.configure(
-    handlers=[{"sink": sys.stdout, "level": logging.INFO, "format": format_record}]
+    handlers=[{"sink": sys.stdout, "level": getattr(logging, LOG_LEVEL),
+               "format": format_record, "filter": filter_out_health_check}]
 )
 logging.getLogger("uvicorn.access").handlers = [InterceptHandler()]
 # logging.getLogger("uvicorn.error").handlers = [InterceptHandler()]
 # logging.getLogger("uvicorn").handlers = [InterceptHandler()]
 logging.getLogger("uvicorn.asgi").handlers = [InterceptHandler()]
-logger.add(Path(LOG_FILE_PATH) / LOG_FILENAME, retention=LOG_FILE_RETENTION, rotation=LOG_FILE_ROTATION)
 
+logger.add(Path(LOG_FILE_PATH) / LOG_FILENAME, level=getattr(logging, LOG_LEVEL), retention=LOG_FILE_RETENTION, rotation=LOG_FILE_ROTATION,
+           filter=filter_out_health_check)
 
 from Access.api.api_v1.api import api_router
 from Access.api.health import router as health_router

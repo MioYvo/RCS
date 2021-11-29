@@ -28,7 +28,7 @@ python-multipart = "^0.0.5"
 httpx = "^0.21.1"
 python-consul2 = "^0.1.5"
 dnspython = "^2.1.0"
-odmantic-documentdb = "^0.0.2"
+odmantic = {git = "https://github.com/MioYvo/odmantic.git", rev = "aws-DocumentDB"}
 
 [tool.poetry.dev-dependencies]
 #mypy = "^0.770"

@@ -108,13 +108,13 @@ class AccessConsumer(AmqpConsumer):
                 "rule": _rule_id,
                 "rule_schema": _rule_schema
             }
+            await self.update_results(record_id=_record_id, rule_id=_rule_id)
             tf, rst, sent_msg = await publisher(
                 conn=self.amqp_connection,
                 message=data, exchange_name=RCSExchangeName,
                 routing_key=RULE_EXE_ROUTING_KEY, timestamp=Dt.now_ts(),
             )
             if tf:
-                await self.update_results(record_id=_record_id, rule_id=_rule_id)
                 self.logger.info('publishSuccess', routing_key=RULE_EXE_ROUTING_KEY, rule=_rule_name, record=_record_id)
             else:
                 self.logger.error('publishFailed', routing_key=RULE_EXE_ROUTING_KEY, rule=_rule_name, record=_record_id)
@@ -127,7 +127,6 @@ class AccessConsumer(AmqpConsumer):
                 "results.$.dispatch_time": datetime.datetime.utcnow()
             }}
         )
-        self.logger.info(f"update_results::modified_count::{rst.modified_count}")
 
     @staticmethod
     async def update_rules(rules, event: Event):

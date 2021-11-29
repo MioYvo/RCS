@@ -32,6 +32,7 @@ LOG_FILE_PATH = getenv('LOG_FILE_PATH', '/app/log/')
 LOG_FILENAME = getenv('LOG_FILENAME', f"{PROJECT_NAME}.log")
 LOG_FILE_RETENTION = getenv('LOG_FILE_RETENTION', '7 days')
 LOG_FILE_ROTATION = getenv('LOG_FILE_ROTATION', '1 day')
+LOG_LEVEL = getenv('LOG_LEVEL', 'INFO')
 
 # DataProcessor
 PRE_FETCH_COUNT = int(getenv('PRE_FETCH_COUNT', 10))

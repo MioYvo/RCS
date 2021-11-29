@@ -1,3 +1,4 @@
+
 aio-pika==6.8.0; python_version > "3.5" and python_version < "4"
 aiocache==0.11.1
 aioredis==2.0.0; python_version >= "3.6"
@@ -22,7 +23,7 @@ idna==3.3; python_version >= "3.6" and python_version < "4" and (python_version 
 loguru==0.5.3; python_version >= "3.5"
 motor==2.4.0; python_version >= "3.6" and python_version < "4.0" and python_full_version >= "3.5.2"
 multidict==5.2.0; python_version >= "3.6" and python_version < "4"
-odmantic-documentdb==0.0.2; python_version >= "3.6" and python_version < "4.0"
+odmantic @ git+https://github.com/MioYvo/odmantic.git@aws-DocumentDB ; python_version >= "3.6" and python_version < "4.0"
 pamqp==2.3.0; python_version > "3.5" and python_version < "4"
 pydantic==1.8.2; python_version >= "3.6" and python_version < "4.0" and python_full_version >= "3.6.1"
 pymongo==3.12.1; python_version >= "3.6" and python_version < "4.0" and python_full_version >= "3.5.2"
@@ -50,6 +51,6 @@ uvicorn==0.15.0
 uvloop==0.16.0; python_version >= "3.7"
 watchgod==0.7; python_version >= "3.5"
 websockets==10.1; python_version >= "3.7"
-win32-setctime==1.0.3; sys_platform == "win32" and python_version >= "3.5"
+win32-setctime==1.0.4; sys_platform == "win32" and python_version >= "3.5"
 wrapt==1.13.3; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.5.0" and python_version >= "3.6"
 yarl==1.7.2; python_version >= "3.6" and python_version < "4"

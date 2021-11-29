@@ -11,6 +11,7 @@ from odmantic import Model, AIOEngine, ObjectId
 from odmantic.engine import ModelType
 from odmantic.query import QueryExpression
 from pydantic.utils import lenient_issubclass
+from pymongo import ReturnDocument
 from pymongo.results import UpdateResult
 
 from config import SCHEMA_TTL, CACHE_NAMESPACE
@@ -26,6 +27,9 @@ class YvoEngine(AIOEngine):
     @staticmethod
     def build_cache_key(instance):
         return f"{instance.__collection__}:{getattr(instance, instance.__primary_field__)}"
+
+    async def refresh(self, instance: ModelType):
+        await self.find_one(type(instance), type(instance).id == instance.id)
 
     # TODO to make cache without pickle problems, may inherit AIOEngine.find and AIOCursor
     # @cached(ttl=SCHEMA_TTL, serializer=pickle_serializer, **redis_cache_no_self)
@@ -141,6 +145,18 @@ class YvoEngine(AIOEngine):
         # query = AIOEngine._build_query(*queries)
         # logger.debug(f"update_one::{query}::{update}")
         return await collection.update_one(filter=query, update=update)
+
+    async def find_one_and_update(self,
+                                  model: Type[ModelType],
+                                  query,
+                                  update: List[Dict] = None,
+                                  return_document=ReturnDocument.AFTER) -> dict:
+        collection = self.get_collection(model)
+        # IMPORTANT For AWS DocumentDB updateOne cannot use queries builder
+        # IMPORTANT use RAW query directly for multi queries, or kwargs style query for ONE query like Record.id == xxx
+        # query = AIOEngine._build_query(*queries)
+        # logger.debug(f"update_one::{query}::{update}")
+        return await collection.find_one_and_update(filter=query, update=update, return_document=return_document)
 
     async def delete_many(self, model: Type[ModelType], *queries):
         collection = self.get_collection(model)

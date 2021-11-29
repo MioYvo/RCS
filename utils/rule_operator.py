@@ -156,7 +156,7 @@ class Functions(object):
         #     # TODO custom Exceptions
         #     raise Exception(f'Scene {scene_id} not found')
         #
-        print(scene_name)
+        # print(scene_name)
         print(fields)
 
 

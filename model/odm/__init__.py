@@ -51,6 +51,7 @@ class PredefinedEventName(str, Enum):
 
 
 class Action(str, Enum):
+    NOTHING = "NOTHING"
     WARNING = "WARNING"
     REFUSE_OPERATION = "REFUSE_OPERATION"
     BLOCK_USER = 'BLOCK_USER'
@@ -153,7 +154,6 @@ class User(EmbeddedModel):
     project: str
 
 
-# noinspection PyAbstractClass
 class ResultInRecord(EmbeddedModel):
     result_id: Optional[ObjectId] = Field(default=None, title='结果id')
     rule_id: ObjectId
@@ -163,12 +163,20 @@ class ResultInRecord(EmbeddedModel):
     done_time: datetime.datetime = Field(default=datetime.datetime.min, title="执行完成时间")
 
 
+class PunishInRecord(EmbeddedModel):
+    total_punish_level: int = Field(default=0, title="总风险等级")
+    hit_punish_level: int = Field(default=0, title="已触发的风险等级")
+    results_done: int = Field(default=0, title="已完成检查的规则数量")
+    action: Action = Field(default=Action.NOTHING, title="惩罚动作")
+
+
 # noinspection PyAbstractClass
 class Record(Model):
     event: Event = Reference()
     event_data: dict = Field(..., title="事件数据")
     user: User = Field(..., title="用户信息")
     results: List[ResultInRecord] = Field(default_factory=list)
+    punish: PunishInRecord = Field(default_factory=dict, title="惩罚")
     is_processed: bool = Field(default=False, title="是否已处理")
     event_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)

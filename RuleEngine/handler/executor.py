@@ -9,7 +9,8 @@ from aio_pika import IncomingMessage
 from bson import ObjectId
 from schema import Schema, SchemaError, Use
 
-from model.odm import Record, Rule, Result, PUNISH_ACTION_LEVEL_MAP, Action, ResultInRecordStatus
+from model.odm import Record, Rule, Result, ResultInRecordStatus, \
+    suggest_final_punishment
 from utils.fastapi_app import app
 from utils.rule_operator import RuleParser
 from config import RULE_EXE_ROUTING_KEY
@@ -77,7 +78,6 @@ class RuleExecutorConsumer(AmqpConsumer):
             await self.reject(message, requeue=False)
         else:
             await self.update_results_in_record(record=record, rule=rule, result=result)
-            await self.auto_punish(record=record)
         finally:
             try:
                 # may rejected msg before this
@@ -85,8 +85,7 @@ class RuleExecutorConsumer(AmqpConsumer):
             except Exception as e:
                 self.logger.debug(e, where='ack msg')
 
-    @staticmethod
-    async def update_results_in_record(record: Record, rule: Rule, result: Optional[Result] = None) -> None:
+    async def update_results_in_record(self, record: Record, rule: Rule, result: Optional[Result] = None):
         """
         Update Record.results, which is rule-result mapping
         :param record:
@@ -94,14 +93,34 @@ class RuleExecutorConsumer(AmqpConsumer):
         :param result:
         :return:
         """
-        await app.state.engine.update_one(
+
+        inc = {
+            "punish.total_punish_level": rule.punish_level, "punish.results_done": 1,
+        }
+        if result:
+            inc["punish.hit_punish_level"] = rule.punish_level
+
+        record: dict = await app.state.engine.find_one_and_update(
             Record, {"_id": record.id, "results.rule_id": rule.id},
-            update={"$set": {
-                "results.$.status": ResultInRecordStatus.HIT if result else ResultInRecordStatus.DONE,
-                "results.$.done_time": datetime.datetime.utcnow(),
-                "results.$.result_id": result.id if result else None
-            }}
+            update={
+                "$set": {
+                    "results.$.status": ResultInRecordStatus.HIT if result else ResultInRecordStatus.DONE,
+                    "results.$.done_time": datetime.datetime.utcnow(),
+                    "results.$.result_id": result.id if result else None
+                },
+                "$inc": inc
+            }
         )
+        self.logger.info(record['_id'], record['punish'], [i['status'] for i in record['results']])
+        # record = await app.state.engine.refresh(record)
+        if record['punish']['results_done'] == len(record['results']):
+            action = suggest_final_punishment(record['punish']['hit_punish_level'])
+            record = await app.state.engine.find_one_and_update(Record, Record.id == record['_id'], {"$set": {"punish.action": action}})
+            self.logger.info(f"suggest:punish", record['punish'])
+        # return app.state.engine.find_one(Record, Record.id == record.id)
+
+        # self.logger.info(f"update_results", modified_count=rst.modified_count, rule=rule.id,
+        #                  result=True if result else False)
 
     async def auto_punish(self, record: Record) -> None:
         """
@@ -109,28 +128,34 @@ class RuleExecutorConsumer(AmqpConsumer):
         TODO Create a scheduled task to check time-out Rule Executor, for fall-back processing.
         :return:
         """
-        undone_record = await app.state.engine.gets(
-            Record, {
-                "_id": record.id,
-                "results.status": {
-                    "$in": [ResultInRecordStatus.WAIT.value, ResultInRecordStatus.DISPATCHED.value]
-                }
-            },
-        )
-        if not undone_record:
-            # all rules' result are executed
-            # find all auto punished rules to calculate FINAL punish level
-            record_punish_level: dict = record.rules_punish_level()
-            final_punish_action: Optional[Action] = None
-            for _level in PUNISH_ACTION_LEVEL_MAP.keys():
-                if record_punish_level['done'] >= _level:
-                    final_punish_action = PUNISH_ACTION_LEVEL_MAP[_level]
-                else:
-                    break
-            self.logger.info(f'auto_punish::{record_punish_level}::{final_punish_action}')
-            if final_punish_action:
-                # DO punish
-                pass
+        if record.punish.results_done == len(record.results):
+            action = suggest_final_punishment(record.punish.hit_punish_level)
+            await app.state.engine.update_one(Record, Record.id == record.id, {"$set": {"punish.action": action}})
+            self.logger.info(f"suggest:punish", record.punish)
+
+        # undone_record = await app.state.engine.gets(
+        #     Record, {
+        #         "_id": record.id,
+        #         "results.status": {
+        #             "$in": [ResultInRecordStatus.WAIT.value, ResultInRecordStatus.DISPATCHED.value]
+        #         }
+        #     },
+        # )
+        # if not undone_record:
+        #     # all rules' result are executed
+        #     # find all auto punished rules to calculate FINAL punish level
+        #     record = await app.state.engine.find_one(Record, Record.id == record.id)
+        #     record_punish_level: dict = record.rules_punish_level()
+        #     final_punish_action: Optional[Action] = None
+        #     for _level in PUNISH_ACTION_LEVEL_MAP.keys():
+        #         if record_punish_level['done'] >= _level:
+        #             final_punish_action = PUNISH_ACTION_LEVEL_MAP[_level]
+        #         else:
+        #             break
+        #     self.logger.info(f'auto_punish::{record_punish_level}::{final_punish_action}')
+        #     if final_punish_action:
+        #         # DO punish
+        #         pass
 
     async def validate_message(self, message) -> Optional[dict]:
         try:

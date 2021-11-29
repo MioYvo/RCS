@@ -7,7 +7,7 @@ WORKDIR /app/
 
 RUN rpm --rebuilddb && \
     yum update -y && \
-    yum install -y yum-utils && \
+    yum install -y yum-utils git && \
     cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && \
     pip3 install --no-cache-dir -r requirements.txt && \
     pip3 cache purge && \
