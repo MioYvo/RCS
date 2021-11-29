@@ -114,7 +114,7 @@ class YvoEngine(AIOEngine):
             _pipeline.extend(pipeline)
         else:
             _pipeline = pipeline
-        logger.info(f"pipeline::{_pipeline}")
+        # logger.info(f"pipeline::{_pipeline}")
         collection = self.get_collection(model)
         motor_cursor = collection.aggregate(_pipeline)
         return [doc async for doc in motor_cursor]
@@ -134,10 +134,12 @@ class YvoEngine(AIOEngine):
         count = await collection.count_documents(query)
         return int(count)
 
-    async def update_one(self, model: Type[ModelType], *queries, update: List[Dict] = None) -> UpdateResult:
+    async def update_one(self, model: Type[ModelType], query, update: List[Dict] = None) -> UpdateResult:
         collection = self.get_collection(model)
-        query = AIOEngine._build_query(*queries)
-        logger.debug(f"update_one::{query}::{update}")
+        # IMPORTANT For AWS DocumentDB updateOne cannot use queries builder
+        # IMPORTANT use RAW query directly for multi queries, or kwargs style query for ONE query like Record.id == xxx
+        # query = AIOEngine._build_query(*queries)
+        # logger.debug(f"update_one::{query}::{update}")
         return await collection.update_one(filter=query, update=update)
 
     async def delete_many(self, model: Type[ModelType], *queries):

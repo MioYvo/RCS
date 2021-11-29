@@ -88,35 +88,24 @@ class AccessConsumer(AmqpConsumer):
             Rule.status == Status.ON,
             {"project": {"$elemMatch": {"$eq": record.user.project}}}
         )
-        self.logger.info(f'no such rule effective: {rules - {_r.id for _r in _rules}}')
+        self.logger.info(f'no such effective rules: {rules - {_r.id for _r in _rules}}')
 
         record.results = [ResultInRecord(rule_id=_rule.id, punish_level=_rule.punish_level) for _rule in _rules]
         await app.state.engine.save(record)
 
         for _rule in _rules:
             _rule: Rule
-            # may Replace rule's schema with record data here
-            # rule = await app.state.engine.find_one(Rule, Rule.id == rule, Rule.status == Status.ON, Rule.project)
-            # rule = await app.state.engine.find_one(
-            #     Rule,
-            #     {
-            #         "_id": {"$eq": _rule},
-            #         "status": {"$eq": Status.ON},
-            #         "project": {"$elemMatch": {"$eq": record.user.project}}
-            #     }
-            # )
-            # if not rule:
-            #     self.logger.info(f'no such rule effective: {_rule}')
-            #     continue
-            # record.reformat_event_data()
-            rule_schema = deepcopy(_rule.rule)
-            _rule_schema = await RuleParser.render_rule(rule_schema, record)
+            _rule_name = _rule.name
+            _rule_id = _rule.id
+            _record_id = record.id
+
+            _rule_schema = await RuleParser.render_rule(deepcopy(_rule.rule), record)
             if not isinstance(_rule_schema, list):
                 _rule_schema = [_rule_schema]
 
             data = {
-                "record": record.id,
-                "rule": _rule.id,
+                "record": _record_id,
+                "rule": _rule_id,
                 "rule_schema": _rule_schema
             }
             tf, rst, sent_msg = await publisher(
@@ -125,17 +114,18 @@ class AccessConsumer(AmqpConsumer):
                 routing_key=RULE_EXE_ROUTING_KEY, timestamp=Dt.now_ts(),
             )
             if tf:
-                await self.update_results(record=record, rule_id=_rule.id)
-                self.logger.info('publishSuccess', routing_key=RULE_EXE_ROUTING_KEY)
+                await self.update_results(record_id=_record_id, rule_id=_rule_id)
+                self.logger.info('publishSuccess', routing_key=RULE_EXE_ROUTING_KEY, rule=_rule_name, record=_record_id)
             else:
-                self.logger.error('publishFailed', routing_key=RULE_EXE_ROUTING_KEY)
+                self.logger.error('publishFailed', routing_key=RULE_EXE_ROUTING_KEY, rule=_rule_name, record=_record_id)
 
-    async def update_results(self, record: Record, rule_id: ObjectId):
+    async def update_results(self, record_id: ObjectId, rule_id: ObjectId):
         rst: UpdateResult = await app.state.engine.update_one(
             Record,
-            Record.id == record.id,
-            {"results.rule_id": rule_id},
-            update={"$set": {"results.$.dispatch_time": datetime.datetime.utcnow()}}
+            {"_id": record_id, "results.rule_id": rule_id},
+            update={"$set": {
+                "results.$.dispatch_time": datetime.datetime.utcnow()
+            }}
         )
         self.logger.info(f"update_results::modified_count::{rst.modified_count}")
 

@@ -156,7 +156,7 @@ user_agent = getenv('http_clients_default_user_agent',
 # a_http_client = AsyncHTTPClient()
 
 # Consul    "Token@Host:Port Token2@Host2:Port2"
-CONSUL_CONN = getenv('CONSUL_CONN', 'vdex#10.17.5.131:8500')
+CONSUL_CONN = getenv('CONSUL_CONN', '')
 # # self consul config
 CONSUL_SERVICE_NAME = getenv('CONSUL_SERVICE_NAME', 'rcs')
 CONSUL_SERVICE_ID = getenv('CONSUL_SERVICE_ID', 'rcs_1')

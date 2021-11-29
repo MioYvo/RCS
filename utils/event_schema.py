@@ -35,7 +35,8 @@ class EventSchema:
 
     @classmethod
     def type_decimal(cls):
-        return And(Use(str), Use(Decimal128))
+        # FIXME for aws DocumentDB which not support Decimal128
+        return And(Use(str), Use(float))
 
     @classmethod
     def type_str(cls):

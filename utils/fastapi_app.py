@@ -35,7 +35,7 @@ app = FastAPI(title=PROJECT_NAME, docs_url=DOCS_URL, redoc_url=REDOC_URL, openap
 async def unicorn_exception_handler(request: Request, exc: RCSException):
     return JSONResponse(
         status_code=exc.status_code,
-        content={"message": exc.message, "error_code": exc.error_code, "content": exc.content},
+        content={"message": str(exc.message), "error_code": str(exc.error_code), "content": str(exc.content)},
     )
 
 
@@ -44,7 +44,7 @@ async def unicorn_exception_handler(request: Request, exc: RCSException):
 async def unicorn_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
-        content={"content": str(exc), "arg": exc.args},
+        content={"content": str(exc), "arg": str(exc.args)},
     )
 
 
@@ -53,7 +53,7 @@ async def unicorn_exception_handler(request: Request, exc: Exception):
 async def unicorn_exception_handler(request: Request, exc: pymongo.errors.OperationFailure):
     return JSONResponse(
         status_code=400,
-        content={"message": "DBOperateFailed", "error_code": ERR_DB_OPERATE_FAILED, "content": exc.details},
+        content={"message": "DBOperateFailed", "error_code": ERR_DB_OPERATE_FAILED, "content": str(exc.details)},
     )
 
 
