@@ -287,7 +287,7 @@ class RuleParser(object):
             data = rl[2]
             kwargs[arg_name] = Operator(arg_name, func, data, func_name=func_name)
             origin_data[arg_name] = data
-        valid_rst, valid_data = scene.validate_schema(scene.scene_schema, origin_data)
+        valid_rst, valid_data = scene.validate_schema(origin_data)
         if valid_rst:
             for k, v in valid_data.items():
                 kwargs[k].data = v

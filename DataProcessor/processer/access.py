@@ -11,7 +11,6 @@ from config import RCSExchangeName, RULE_EXE_ROUTING_KEY, DATA_PROCESSOR_ROUTING
 from model.odm import Event, Record, Rule, Status, ResultInRecord
 from utils.amqp_consumer import AmqpConsumer
 from utils.amqp_publisher import publisher
-from utils.event_schema import EventSchema
 from utils.gtz import Dt
 from utils.logger import Logger
 from utils.fastapi_app import app
@@ -24,8 +23,9 @@ class AccessConsumer(AmqpConsumer):
 
     async def validate_message(self, message) -> Optional[Record]:
         try:
-            record: Record = Record.parse_raw(message.body)
-            record.event_data = EventSchema.validate(record.event.rcs_schema, record.event_data)
+            record: Record = Record.parse_doc(message.body)
+            event = await record.event_(app)
+            record.event_data = event.validate_schema(record.event_data)
         except SchemaError as e:
             self.logger.exceptions(e)
             return None

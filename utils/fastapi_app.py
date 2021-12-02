@@ -16,7 +16,6 @@ from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pysmx.SM3 import hash_msg
 
-from model.odm import Handler, HandlerRole
 from utils.exceptions import RCSException
 from utils.yvo_engine import YvoEngine
 from config import PROJECT_NAME, MONGO_URI, MONGO_DB, PIKA_URL, RCSExchangeName, AccessExchangeType, REDIS_DB, \
@@ -119,6 +118,7 @@ async def startup_mongo():
 
 
 async def startup_admin_user():
+    from model.odm import Handler, HandlerRole
     logger.info('user admin: creating ...')
     redis: Redis = app.state.a_redis
     r_key = "startup::admin_user"

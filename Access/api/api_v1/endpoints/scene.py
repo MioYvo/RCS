@@ -86,8 +86,7 @@ async def get_scenes(
         queries.append(Scene.category.match(category))
     # count to calculate total_page
     total_count = await app.state.engine.count(Scene, *queries)
-    scenes = await app.state.engine.gets(Scene, *queries, sort=sort, skip=skip, limit=limit,
-                                         return_doc=False)
+    scenes = await app.state.engine.gets(Scene, *queries, sort=sort, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(scenes))
     # return YvoJSONResponse(
     #     dict(message='', error_code=0, content=scenes, meta=p.meta_pagination()),

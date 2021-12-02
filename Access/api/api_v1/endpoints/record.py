@@ -53,7 +53,7 @@ async def create_or_update_record(record_in: RecordIn):
     if not event:
         raise RCSExcNotFound(entity_id=str(record_in.event_name))
     # validate event
-    validate_rst, validate_info = event.validate_schema(event.rcs_schema, record_in.event_data)
+    validate_rst, validate_info = event.validate_schema(record_in.event_data)
     if not validate_rst:
         raise RCSExcErrArg(content=validate_info)
 
@@ -115,10 +115,11 @@ async def get_records(
     # count to calculate total_page
     total_count = await app.state.engine.count(Record, *queries)
     records = await app.state.engine.gets(
-        Record, *queries, sort=sort, skip=skip, limit=limit, return_doc=False)
+        Record, *queries, sort=sort, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(records))
     return YvoJSONResponse(
-        dict(content=[i.a_dict(exclude={"event": {"rcs_schema", "rules"}}) for i in records], meta=p.meta_pagination()),
+        dict(content=[await i.refer_dict(event_kwargs=dict(exclude={"rcs_schema", "rules"})) for i in records],
+             meta=p.meta_pagination()),
     )
 
 
@@ -127,7 +128,7 @@ async def get_record(record_id: ObjectId):
     record = await app.state.engine.find_one(Record, Record.id == record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
-    return YvoJSONResponse(record.a_dict())
+    return YvoJSONResponse(await record.refer_dict())
 
 
 @router.get("/record/{record_id}/results", description="记录相关规则执行的结果")

@@ -66,7 +66,7 @@ async def get_results(
     # count to calculate total_page
     total_count = await app.state.engine.count(Result, *queries)
     results = await app.state.engine.gets(
-        Result, *queries, sort=sort, skip=skip, limit=limit, return_doc=False)
+        Result, *queries, sort=sort, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(results))
     return YvoJSONResponse(
         dict(content=[

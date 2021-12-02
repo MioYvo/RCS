@@ -12,11 +12,12 @@ from loguru import logger
 from odmantic.bson import BSON_TYPES_ENCODERS
 from pydantic import validator, root_validator
 from pymongo import IndexModel
-from odmantic import Model, ObjectId, Reference, Field, EmbeddedModel
+from odmantic import Model, ObjectId, Field, EmbeddedModel
 
 from utils.exceptions import RCSExcErrArg
 from utils.event_schema import EventSchema
 from utils.gtz import Dt
+from utils.fastapi_app import app
     
 
 class RuleExecuteType(str, Enum):
@@ -111,17 +112,15 @@ class Event(Model):
             raise RCSExcErrArg(content=f"EventSchema parse failed {e}")
         return v
 
-    @classmethod
-    def validate_schema(cls, schema: dict, json: dict):
+    def validate_schema(self, json: dict):
         try:
-            rst = EventSchema.validate(schema, json)
+            rst = EventSchema.validate(self.rcs_schema, json)
         except Exception as e:
             return False, str(e)
         else:
             return True, rst
 
     async def fetch_strategy_latest_record(self, metric: str):
-        from utils.fastapi_app import app
         # noinspection PyUnresolvedReferences
         records = await app.state.engine.gets(Record, Record.event == self.id,
                                               sort=Record.create_at.desc(), limit=1)
@@ -138,9 +137,8 @@ class Event(Model):
     @classmethod
     async def clean(cls, event_id: Union[ObjectId, str]):
         event_id = ObjectId(event_id)
-        from utils.fastapi_app import app
         rst = await app.state.engine.update_many(
-            Scene, {Scene.events: {"$elemMatch": {"$eq": event_id}}},
+            Scene, {"events": {"$elemMatch": {"$eq": event_id}}},
             update={"$pull": {"rule": event_id}}
         )
         logger.info(rst)
@@ -150,8 +148,8 @@ class Event(Model):
 
 # noinspection PyAbstractClass
 class User(EmbeddedModel):
-    user_id: str
-    project: str
+    user_id: str = Field(..., title="用户唯一标识")
+    project: str = Field(..., title="项目名，大写")
 
 
 class ResultInRecord(EmbeddedModel):
@@ -172,7 +170,7 @@ class PunishInRecord(EmbeddedModel):
 
 # noinspection PyAbstractClass
 class Record(Model):
-    event: Event = Reference()
+    event: ObjectId
     event_data: dict = Field(..., title="事件数据")
     user: User = Field(..., title="用户信息")
     results: List[ResultInRecord] = Field(default_factory=list)
@@ -188,16 +186,18 @@ class Record(Model):
     def index_(cls):
         return [IndexModel('name', unique=True, name='idx_name_1')]
 
-    def reformat_event_data(self):
-        rst, i = self.event.validate_schema(self.event.rcs_schema, self.event_data)
+    async def event_(self) -> Optional[Event]:
+        return await app.state.engine.find_one(Event, Event.id == self.event)
+
+    async def reformat_event_data(self):
+        rst, i = (await self.event_()).validate_schema(self.event_data)
         if rst:
             self.event_data = i
         else:
             raise Exception(f'{Record} reformat_event_data failed')
 
     async def rules(self) -> Set[ObjectId]:
-        rules = self.event.rules
-        from utils.fastapi_app import app
+        rules = (await self.event_()).rules
         # noinspection PyUnresolvedReferences
         scene_rules = reduce(lambda a, b: a + b,
                              [scene.rules for scene in await app.state.engine.gets(
@@ -229,14 +229,20 @@ class Record(Model):
     @classmethod
     async def clean(cls, record_id: Union[ObjectId, str]):
         record_id = ObjectId(record_id)
-        from utils.fastapi_app import app
         rst = await app.state.engine.delete_many(Result, Result.record == record_id)
         logger.info(rst)
 
     def a_dict(self, *args, **kwargs):
-        d: dict = self.dict(*args, **kwargs)
+        d = self.dict(*args, **kwargs)
         d['punish_level'] = self.rules_punish_level()
         d['checks_status'] = self.rules_check()
+        return d
+
+    async def refer_dict(self, event_kwargs=None, *args, **kwargs):
+        d: dict = self.a_dict(*args, **kwargs)
+        _event = await self.event_()
+        if _event:
+            d['event'] = _event.dict(**(event_kwargs or {}))
         return d
 
 
@@ -265,17 +271,28 @@ class Handler(Model):
 
 
 class Punishment(Model):
-    record: Record = Reference()
+    record: ObjectId
     user: User
     action: Action = Field(..., title="处罚动作")
     details: dict = Field(default=dict(), title="详细")
     memo: str = Field('', max_length=20, title="备注")
-    handler: Handler = Reference()
+    handler: ObjectId
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     
     class Config:
         json_encoders = {Decimal: lambda x: str(x)}
+
+    async def refer_dict(self, record_kwargs=None, *args, **kwargs) -> dict:
+        d = self.dict(*args, **kwargs)
+        _record: Record = await app.state.engine.find_one(Record, Record.id == self.record)
+        if _record:
+            d['record'] = await _record.refer_dict(**(record_kwargs or {}))
+
+        _handler: Handler = await app.state.engine.find_one(Handler, Handler.id == self.handler)
+        if _handler:
+            d['handler'] = _handler.dict(exclude={'token', 'encrypted_password'})
+        return d
 
 # class Category(str, Enum):
 #     registering = "registering"
@@ -317,17 +334,15 @@ class Scene(Model):
             raise RCSExcErrArg(content="SceneSchema parse failed")
         return v
 
-    @classmethod
-    def validate_schema(cls, schema: dict, json: dict):
+    def validate_schema(self, json: dict):
         try:
-            rst = EventSchema.validate(schema, json)
+            rst = EventSchema.validate(self.scene_schema, json)
         except Exception as e:
             return False, str(e)
         else:
             return True, rst
 
     async def fetch_strategy_latest_record(self, metric: str):
-        from utils.fastapi_app import app
         # noinspection PyUnresolvedReferences
         records = await app.state.engine.gets(Record, Record.event == self.id,
                                               sort=Record.create_at.desc(), limit=1)
@@ -344,7 +359,7 @@ class Scene(Model):
 
 # noinspection PyAbstractClass
 class AggData(Model):
-    scene: Scene = Reference()
+    scene: ObjectId
     user: User
     agg_data: dict
     
@@ -370,9 +385,9 @@ class Rule(Model):
     name: str = Field(max_length=25)
     serial_no: int = Field(default_factory=serial_no_generator, title="规则序列号")
     user_prompt: str = Field(max_length=50, default='', title="用户提示")
-    project: List[str] = Field(..., title="项目(列表)", description="从config接口获取完整配置")
-    control_type: str = Field(..., title="控制类型/规则触发", description="从config接口获取完整配置")
-    execute_type: str = Field(..., title="执行方式/风控方式", description="从config接口获取完整配置")
+    project: List[str] = Field(..., title="项目(列表)", description="从config接口获取完整配置 <Config>")
+    control_type: str = Field(..., title="控制类型/规则触发", description="从config接口获取完整配置 <Config>")
+    execute_type: str = Field(..., title="执行方式/风控方式", description="从config接口获取完整配置 <Config>")
     punish_level: RulePunishLevel = Field(default=RulePunishLevel.level_1, title='风控等级/处罚等级', description="预设")
     punish_action: Action = Field(default=Action.REFUSE_OPERATION, title="风控手段/处罚方式", description="从config接口获取完整配置")
     punish_action_args: dict = Field(default_factory=dict, title="风控手段/处罚方式的参数")
@@ -397,6 +412,10 @@ class Rule(Model):
         from utils.rule_operator import RuleParser
         RuleParser.validate(v)
         return v
+
+    @validator('project')
+    def check_project(cls, v: List[str]):
+        return [vv.upper() for vv in v]
 
     @validator('serial_no')
     def check_serial_no(cls, v):
@@ -489,7 +508,6 @@ class Rule(Model):
     @classmethod
     async def clean(cls, rule_id: Union[ObjectId, str]):
         rule_id = ObjectId(rule_id)
-        from utils.fastapi_app import app
         rst = await app.state.engine.update_many(
             Scene, {"rules": {"$elemMatch": {"$eq": rule_id}}},
             update={"$pull": {"rules": rule_id}}
@@ -508,11 +526,17 @@ class Rule(Model):
 
 # noinspection PyAbstractClass
 class Result(Model):
-    rule: Rule = Reference()  # reference to rule
-    record: Record = Reference()
+    rule: ObjectId  # reference to rule
+    record: ObjectId
     processed: bool = Field(default=False, title="是否已处理")
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
 
     class Config:
         json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
+
+    async def rule_(self) -> Rule:
+        return await app.state.engine.find_one(Rule, Rule.id == self.rule)
+
+    async def record_(self) -> Record:
+        return await app.state.engine.find_one(Record, Record.id == self.record)

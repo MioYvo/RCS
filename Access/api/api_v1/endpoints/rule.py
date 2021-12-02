@@ -78,7 +78,7 @@ async def get_rules(
     # count to calculate total_page
     total_count = await app.state.engine.count(Rule, *queries)
     rules = await app.state.engine.gets(
-        Rule, *queries, sort=sort, skip=skip, limit=limit, return_doc=False)
+        Rule, *queries, sort=sort, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(rules))
     return YvoJSONResponse(
         dict(content=[i.dict() for i in rules], meta=p.meta_pagination()),

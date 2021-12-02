@@ -73,6 +73,28 @@ async def shutdown_event():
 
 
 if __name__ == "__main__":
+    # from pymongo import monitoring
+    # class CommandLogger(monitoring.CommandListener):
+    #
+    #     def started(self, event):
+    #         logger.info("Command {0.command_name} with request id "
+    #                      "{0.request_id} started on server "
+    #                      "{0.connection_id} {0.command}".format(event))
+    #
+    #     def succeeded(self, event):
+    #         logger.info("Command {0.command_name} with request id "
+    #                      "{0.request_id} on server {0.connection_id} "
+    #                      "succeeded in {0.duration_micros} "
+    #                      "microseconds".format(event))
+    #
+    #     def failed(self, event):
+    #         logger.info("Command {0.command_name} with request id "
+    #                      "{0.request_id} on server {0.connection_id} "
+    #                      "failed in {0.duration_micros} "
+    #                      "microseconds".format(event))
+    #
+    #
+    # monitoring.register(CommandLogger())
     logger.info(f"{PROJECT_NAME} starting")
     # must be 80, same as Dockerfile
     uvicorn.run("main:app", host="0.0.0.0", port=8080, access_log=True)

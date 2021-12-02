@@ -45,8 +45,8 @@ php_service_consul_name = {
 }
 
 
-@router.get("/userinfo/{project_name}/{user_id}", response_model=UserInfo)
-async def user_info(project_name: ProjectType, user_id: str):
+@router.get("/userinfo/{project_name}/{user_id}", response_model=UserInfo, description="")
+async def user_info(project_name: str, user_id: str):
     php_consul_name = php_service_consul_name.get(project_name.upper())
     if not php_consul_name:
         raise RCSExcErrArg(content=f"{project_name=:} not found")

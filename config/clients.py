@@ -4,9 +4,8 @@ from typing import Union
 # import tornado.ioloop
 import httpx
 import uvloop
-from aiocache import Cache
+from aiocache import Cache, caches
 from aiocache.plugins import HitMissRatioPlugin
-from aiocache.serializers import StringSerializer, JsonSerializer, PickleSerializer
 from motor.core import AgnosticCollection, AgnosticDatabase
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import Redis
@@ -36,35 +35,74 @@ logger = Logger(name="RCS")
 
 # ------------- redis BEGIN -------------
 redis = Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB, password=REDIS_PASS)
-redis_cache_only_kwargs = dict(
+redis_cache_conf = dict(
+    cache=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
+    db=REDIS_DB, password=REDIS_PASS,
+    namespace=CACHE_NAMESPACE,
+    plugins=[HitMissRatioPlugin()]
+)
+redis_cache_no_self_conf = dict(
+    cache=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
+    db=REDIS_DB, password=REDIS_PASS,
+    namespace=CACHE_NAMESPACE,
+    noself=True,    # bool if you are decorating a class function
+    plugins=[HitMissRatioPlugin()]
+)
+redis_cache_only_kwargs_conf = dict(
     cache=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
     db=REDIS_DB, password=REDIS_PASS,
     namespace=CACHE_NAMESPACE,
     key_builder=key_builder_only_kwargs,
     plugins=[HitMissRatioPlugin()]
 )
-redis_cache_no_self = dict(
-    cache=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
-    db=REDIS_DB, password=REDIS_PASS,
-    namespace=CACHE_NAMESPACE,
-    # key_builder=key_builder_only_kwargs,
-    noself=True,
-    plugins=[HitMissRatioPlugin()]
-)
+# redis_cache = Cache(**redis_cache_conf)
+# redis_cache_only_kwargs = Cache(**redis_cache_only_kwargs_conf)
+# redis_cache_no_self = Cache(**redis_cache_no_self_conf)
+
+caches.set_config({
+    'default': dict(
+        cache=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
+        db=REDIS_DB, password=REDIS_PASS,
+        namespace=CACHE_NAMESPACE,
+        plugins=[
+            {'class': "aiocache.plugins.HitMissRatioPlugin"},
+            {'class': "aiocache.plugins.TimingPlugin"}
+        ],
+        serializer={'class': "utils.encoder.JsonSerializer"},
+    ),
+    'redis_cache_no_self_conf': dict(
+        cache=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
+        db=REDIS_DB, password=REDIS_PASS,
+        namespace=CACHE_NAMESPACE,
+        noself=True,    # bool if you are decorating a class function
+        plugins=[
+            {'class': "aiocache.plugins.HitMissRatioPlugin"},
+            {'class': "aiocache.plugins.TimingPlugin"}
+        ],
+        serializer={'class': "utils.encoder.JsonSerializer"},
+    ),
+    'redis_cache_only_kwargs': dict(
+        cache=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
+        db=REDIS_DB, password=REDIS_PASS,
+        namespace=CACHE_NAMESPACE,
+        key_builder=key_builder_only_kwargs,
+        plugins=[
+            {'class': "aiocache.plugins.HitMissRatioPlugin"},
+            {'class': "aiocache.plugins.TimingPlugin"}
+        ],
+        serializer={'class': "utils.encoder.JsonSerializer"},
+    ),
+})
+
 # print(redis_cache_only_kwargs)
 # aio redis, wait aioredis 2.0
 # a_redis_pool = aioredis.create_pool(address=f"redis://{REDIS_HOST}:{REDIS_PORT}",
 #                                     db=REDIS_DB, password=REDIS_PASS, maxsize=20)
 # a_redis = aioredis.Redis(a_redis_pool, )
 # cache
-string_serializer = StringSerializer()
-json_serializer = JsonSerializer()
-pickle_serializer = PickleSerializer()
-cache = Cache(
-    cache_class=Cache.REDIS, endpoint=REDIS_HOST, port=REDIS_PORT,
-    # namespace=PROJECT_NAME,
-    db=REDIS_DB, password=REDIS_PASS, serializer=pickle_serializer
-)
+# string_serializer = StringSerializer()
+# json_serializer = JsonSerializer()
+# pickle_serializer = PickleSerializer()
 
 
 # http client

@@ -65,7 +65,7 @@ async def get_configs(
         queries.append(Config.name.match(name))
     # count to calculate total_page
     total_count = await app.state.engine.count(Config, *queries)
-    configs = await app.state.engine.gets(Config, *queries, skip=skip, limit=limit, return_doc=False)
+    configs = await app.state.engine.gets(Config, *queries, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(configs))
     # return YvoJSONResponse(
     #     dict(message='', error_code=0, content=configs, meta=p.meta_pagination()),

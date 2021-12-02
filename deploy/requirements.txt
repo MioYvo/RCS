@@ -1,6 +1,6 @@
+--index-url https://mirrors.aliyun.com/pypi/simple
 
 aio-pika==6.8.0; python_version > "3.5" and python_version < "4"
-aiocache==0.11.1
 aioredis==2.0.0; python_version >= "3.6"
 aiormq==3.3.1; python_version > "3.5" and python_version < "4"
 anyio==3.4.0; python_version >= "3.6" and python_full_version >= "3.6.2"
@@ -21,12 +21,12 @@ httptools==0.2.0
 httpx==0.21.1; python_version >= "3.6"
 idna==3.3; python_version >= "3.6" and python_version < "4" and (python_version >= "3.5" and python_full_version < "3.0.0" or python_full_version >= "3.6.0" and python_version >= "3.5") and python_full_version >= "3.6.2"
 loguru==0.5.3; python_version >= "3.5"
-motor==2.4.0; python_version >= "3.6" and python_version < "4.0" and python_full_version >= "3.5.2"
+motor==2.3.1; python_version >= "3.6" and python_version < "4.0" and python_full_version >= "3.5.2"
 multidict==5.2.0; python_version >= "3.6" and python_version < "4"
-odmantic @ git+https://github.com/MioYvo/odmantic.git@aws-DocumentDB ; python_version >= "3.6" and python_version < "4.0"
+odmantic==0.3.5; python_version >= "3.6" and python_version < "4.0"
 pamqp==2.3.0; python_version > "3.5" and python_version < "4"
 pydantic==1.8.2; python_version >= "3.6" and python_version < "4.0" and python_full_version >= "3.6.1"
-pymongo==3.12.1; python_version >= "3.6" and python_version < "4.0" and python_full_version >= "3.5.2"
+pymongo==3.12.2; python_version >= "3.6" and python_version < "4.0" and python_full_version >= "3.5.2"
 python-consul2==0.1.5
 python-dateutil==2.8.2; (python_version >= "2.7" and python_full_version < "3.0.0") or (python_full_version >= "3.3.0")
 python-dotenv==0.19.2; python_version >= "3.5"
@@ -37,13 +37,13 @@ pyyaml==6.0; python_version >= "3.6"
 redis==4.0.2; python_version >= "3.6"
 requests==2.26.0; python_version >= "2.7" and python_full_version < "3.0.0" or python_full_version >= "3.6.0"
 rfc3986==1.5.0; python_version >= "3.6"
-schema==0.7.4
+schema==0.7.5
 six==1.16.0; python_version >= "2.7" and python_full_version < "3.0.0" or python_full_version >= "3.3.0"
 sniffio==1.2.0; python_version >= "3.6" and python_full_version >= "3.6.2"
 snowland-smx==0.3.1
 starlette==0.16.0; python_version >= "3.6" and python_full_version >= "3.6.1"
 tenacity==8.0.1; python_version >= "3.6"
-typing-extensions==4.0.0; python_version >= "3.6" and python_full_version >= "3.6.1"
+typing-extensions==4.0.1; python_version >= "3.6" and python_full_version >= "3.6.1"
 tzdata==2021.5; platform_system == "Windows" and python_version >= "3.6" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.6.0" and python_version >= "3.6")
 tzlocal==4.1; python_version >= "3.6"
 urllib3==1.26.7; python_version >= "2.7" and python_full_version < "3.0.0" or python_full_version >= "3.6.0" and python_version < "4"

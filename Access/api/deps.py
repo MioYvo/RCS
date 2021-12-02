@@ -51,6 +51,9 @@ class Page:
 
 
 class YvoJSONResponse(Response):
+    """
+    Usage: @router.delete("/event/{event_id}", status_code=200, response_class=YvoJSONResponse)
+    """
     media_type = "application/json"
 
     def render(self, content: Any) -> bytes:

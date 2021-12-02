@@ -23,8 +23,11 @@ router = APIRouter()
 
 class PunishmentIn(BaseModel):
     record: ObjectId
-    action: Action = PDField(title="处罚动作")
-    details: dict = PDField(default=dict(), title="详细")
+    action: Action = PDField(title="处罚动作", description="候选列表取自Config配置名punish_action",
+                             example='拒绝操作 action="REFUSE_OPERATION"')
+    details: dict = PDField(default=dict(), title="处罚详细参数 JSON对象",
+                            description='时间区间处罚：候选列表取自Config配置名punish_action_args_seconds',
+                            example='处罚1小时 details={"timedelta": 3600}')
     memo: str = PDField(default='', max_length=20, title="备注")
 
 
@@ -40,6 +43,7 @@ class PunishmentsOut(BaseModel):
             response_model=Punishment,
             status_code=HTTP_201_CREATED,
             response_model_exclude={"handler": {"encrypted_password", "token"}},
+            response_class=YvoJSONResponse,
             description="")
 async def create_punishment(punishment: PunishmentIn, handler: Handler = Depends(get_current_username)):
     record = await app.state.engine.find_one(Record, Record.id == punishment.record)
@@ -74,7 +78,7 @@ async def get_punishments(
         desc: bool = True, rule_name: str = "",
         record_id: ObjectId = Query(default='', title="Record.id"),
         user_id: str = Query(default='', description="May come from Record.user.user_id"),
-        project: str = Query(default='', description="May come from Record.user.project")
+        project: str = Query(default='', description="May come from Record.user.project, <Config>")
 ):
     _sort: FieldProxy = getattr(Punishment, sort, None)
     if not _sort:
@@ -105,12 +109,17 @@ async def get_punishments(
     # count to calculate total_page
     total_count = await app.state.engine.count(Punishment, *queries)
     punishments = await app.state.engine.gets(
-        Punishment, *queries, sort=sort, skip=skip, limit=limit, return_doc=False)
+        Punishment, *queries, sort=sort, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(punishments))
     return YvoJSONResponse(
-        dict(content=[
-            i.dict(exclude={'rule': {'rule', 'origin_rule'}, 'record': {'event': {'rcs_schema'}}}
-                   ) for i in punishments], meta=p.meta_pagination()),
+        dict(content=[await i.refer_dict(
+            record_kwargs=dict(
+                event_kwargs=dict(
+                    exclude={'rcs_schema'}
+                ),
+                exclude={'results'}
+        )) for i in punishments],
+             meta=p.meta_pagination())
     )
 
 
@@ -122,7 +131,7 @@ async def get_result(punishment_id: ObjectId):
     return YvoJSONResponse(punishment.dict())
 
 
-@router.delete("/punishment/{punishment_id}")
+@router.delete("/punishment/{punishment_id}", status_code=204)
 async def delete_punishment(punishment_id: ObjectId):
     punishment = await app.state.engine.find_one(Punishment, Punishment.id == punishment_id)
     if not punishment:
