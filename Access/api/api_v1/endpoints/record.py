@@ -58,7 +58,8 @@ async def create_or_update_record(record_in: RecordIn):
         raise RCSExcErrArg(content=validate_info)
 
     sending_data = record_in.dict()
-    sending_data['event'] = event.dict()
+    sending_data['event'] = event.id
+    # sending_data['event'] = event.dict()
     sending_data['event_data'] = validate_info
 
     tf, rst, sent_msg = await publisher(
@@ -93,13 +94,13 @@ async def get_records(
     queries = []
     if event_name:
         # noinspection PyUnresolvedReferences
-        events = await app.state.engine.gets(Event, Event.name.match(event_name))
+        events = await app.state.engine.find(Event, Event.name.match(event_name) | Event.desc.match(event_name))
         # noinspection PyUnresolvedReferences
         queries.append(Record.event.in_([e.id for e in events]))
         # !!! filter across references is not supported
         # queries.append(Record.event.name.match(name))
     if relation_record_id:
-        _record: Record = await app.state.engine.find_one(Record, Record.id == ObjectId(relation_record_id))
+        _record: Record = await app.state.engine.get_by_id(Record, relation_record_id)
         if not _record:
             raise RCSExcNotFound(entity_id=str(relation_record_id))
         queries += [Record.event_at < _record.event_at, Record.user == _record.user]
@@ -114,7 +115,7 @@ async def get_records(
     logger.info(queries)
     # count to calculate total_page
     total_count = await app.state.engine.count(Record, *queries)
-    records = await app.state.engine.gets(
+    records = await app.state.engine.find(
         Record, *queries, sort=sort, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(records))
     return YvoJSONResponse(
@@ -125,7 +126,7 @@ async def get_records(
 
 @router.get("/record/{record_id}", response_model=Record)
 async def get_record(record_id: ObjectId):
-    record = await app.state.engine.find_one(Record, Record.id == record_id)
+    record = await app.state.engine.get_by_id(Record, record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
     return YvoJSONResponse(await record.refer_dict())
@@ -137,16 +138,16 @@ async def get_record_results(
         all_data_view: bool = Query(default=False, description="显示所有")
 
 ):
-    record = await app.state.engine.find_one(Record, Record.id == record_id)
+    record = await app.state.engine.get_by_id(Record, record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
 
     _results = deepcopy(record.results)
     __results = []
     for _rst in _results:
-        if not _rst.result_id:
+        if not all_data_view and not _rst.result_id:
             continue
-        _rule: Optional[Rule] = await app.state.engine.find_one(Rule, Rule.id == _rst.rule_id)
+        _rule: Optional[Rule] = await app.state.engine.get_by_id(Rule, _rst.rule_id)
         if not _rule:
             continue
         __rst = {}
@@ -158,7 +159,7 @@ async def get_record_results(
 
 @router.get("/record/{record_id}/statistics/withdraw", description="提币统计数据")
 async def get_record_statistics_withdraw(record_id: ObjectId = Query(..., description="记录id")):
-    record = await app.state.engine.find_one(Record, Record.id == record_id)
+    record = await app.state.engine.get_by_id(Record, record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
 
@@ -176,7 +177,7 @@ async def get_record_statistics_withdraw(record_id: ObjectId = Query(..., descri
 
 @router.get("/record/{record_id}/statistics/recharge", description="充值统计数据")
 async def get_record_statistics_recharge(record_id: ObjectId = Query(..., description="记录id")):
-    record = await app.state.engine.find_one(Record, Record.id == record_id)
+    record = await app.state.engine.get_by_id(Record, record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
 
@@ -193,7 +194,7 @@ async def get_record_statistics_recharge(record_id: ObjectId = Query(..., descri
 
 @router.delete("/record/{record_id}")
 async def delete_record(record_id: ObjectId):
-    record = await app.state.engine.find_one(Record, Record.id == record_id)
+    record = await app.state.engine.get_by_id(Record, record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
     await app.state.engine.delete(record)

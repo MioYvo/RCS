@@ -39,7 +39,7 @@ async def single_amount_per_time_limit(
     app.state.engine: YvoEngine
     rst = await app.state.engine.yvo_pipeline(
         Record,
-        Record.event == record.event.id,
+        Record.event == record.event,
         Record.user.user_id == record.user.user_id,
         Record.user.project == record.user.project,
         {"event_data.coin_name": {f"${coin_name_opt.func_name.replace('_', '')}": coin_name_opt.data}},
@@ -75,7 +75,7 @@ async def single_num_per_time_limit(
     app.state.engine: YvoEngine
     rst = await app.state.engine.yvo_pipeline(
         Record,
-        Record.event == record.event.id,
+        Record.event == record.event,
         Record.user.user_id == record.user.user_id,
         Record.user.project == record.user.project,
         {"event_data.coin_name": {f"${coin_name_opt.func_name.replace('_', '')}": coin_name_opt.data}},
@@ -111,7 +111,7 @@ async def project_amount_per_time_limit(
     app.state.engine: YvoEngine
     rst = await app.state.engine.yvo_pipeline(
         Record,
-        Record.event == record.event.id,
+        Record.event == record.event,
         # Record.user.user_id == record.user.user_id,
         Record.user.project == record.user.project,
         {"event_data.coin_name": {f"${coin_name_opt.func_name.replace('_', '')}": coin_name_opt.data}},
@@ -145,7 +145,7 @@ async def project_num_per_time_limit(
     app.state.engine: YvoEngine
     rst = await app.state.engine.yvo_pipeline(
         Record,
-        Record.event == record.event.id,
+        Record.event == record.event,
         # Record.user.user_id == record.user.user_id,
         Record.user.project == record.user.project,
         {"event_data.coin_name": {f"${coin_name_opt.func_name.replace('_', '')}": coin_name_opt.data}},
@@ -180,7 +180,7 @@ async def multi_stellar_address_to_one(
 
     rst = await app.state.engine.yvo_pipeline(
         Record,
-        Record.event == record.event.id,
+        Record.event == record.event,
         # Record.user.user_id == record.user.user_id,
         Record.user.project == record.user.project,
         {"event_data.coin_name": {f"${coin_name_opt.func_name.replace('_', '')}": coin_name_opt.data}},

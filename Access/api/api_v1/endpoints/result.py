@@ -55,38 +55,42 @@ async def get_results(
     if rule_name:
         # TODO filter records by rule_name
         # noinspection PyUnresolvedReferences
-        rules = await app.state.engine.gets(Rule, Rule.name.match(rule_name))
-        records = await app.state.engine.gets(Record, Record.event.in_(rules))  # FIXME
+        rules = await app.state.engine.find(Rule, Rule.name.match(rule_name))
+        # noinspection PyUnresolvedReferences
+        records = await app.state.engine.find(Record, Record.event.in_(rules))
         # noinspection PyUnresolvedReferences
         queries.append(Result.record.in_([r.id for r in records]))
         # !!! filter across references is not supported
         # queries.append(Result.event.name.match(name))
     if record_id:
-        queries.append(Result.id == record_id)
+        queries.append(Result.record == record_id)
     # count to calculate total_page
     total_count = await app.state.engine.count(Result, *queries)
-    results = await app.state.engine.gets(
+    results = await app.state.engine.find(
         Result, *queries, sort=sort, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(results))
     return YvoJSONResponse(
         dict(content=[
-            i.dict(exclude={'rule': {'rule', 'origin_rule'}, 'record': {'event': {'rcs_schema'}}}
-                   ) for i in results], meta=p.meta_pagination()),
+            await i.refer_dict(
+                record_kwargs=dict(exclude={'event': {'rcs_schema'}}),
+                rule_kwargs=dict(exclude={'rule', 'origin_rule'})
+            ) for i in results], meta=p.meta_pagination()),
     )
 
 
 @router.get("/result/{result_id}", response_model=Result)
 async def get_result(result_id: ObjectId):
-    result = await app.state.engine.find_one(Result, Result.id == result_id)
+    result = await app.state.engine.get_by_id(Result, result_id)
     if not result:
         raise RCSExcNotFound(entity_id=str(result_id))
-    return YvoJSONResponse(result.dict())
+    return YvoJSONResponse(await result.refer_dict())
 
 
 @router.delete("/result/{result_id}")
 async def delete_result(result_id: ObjectId):
-    result = await app.state.engine.find_one(Result, Result.id == result_id)
-    if not result:
-        raise RCSExcNotFound(entity_id=str(result_id))
-    await app.state.engine.delete(result)
-    return YvoJSONResponse(result.dict())
+    raise RCSExcErrArg("Result cannot be deleted :(")
+    # result = await app.state.engine.get_by_id(Result, result_id)
+    # if not result:
+    #     raise RCSExcNotFound(entity_id=str(result_id))
+    # await app.state.engine.delete(result)
+    # return YvoJSONResponse(result.dict())

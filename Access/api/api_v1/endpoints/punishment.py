@@ -24,10 +24,10 @@ router = APIRouter()
 class PunishmentIn(BaseModel):
     record: ObjectId
     action: Action = PDField(title="处罚动作", description="候选列表取自Config配置名punish_action",
-                             example='拒绝操作 action="REFUSE_OPERATION"')
+                             example='REFUSE_OPERATION')
     details: dict = PDField(default=dict(), title="处罚详细参数 JSON对象",
                             description='时间区间处罚：候选列表取自Config配置名punish_action_args_seconds',
-                            example='处罚1小时 details={"timedelta": 3600}')
+                            example='{"timedelta": 3600}')
     memo: str = PDField(default='', max_length=20, title="备注")
 
 
@@ -43,10 +43,9 @@ class PunishmentsOut(BaseModel):
             response_model=Punishment,
             status_code=HTTP_201_CREATED,
             response_model_exclude={"handler": {"encrypted_password", "token"}},
-            response_class=YvoJSONResponse,
             description="")
 async def create_punishment(punishment: PunishmentIn, handler: Handler = Depends(get_current_username)):
-    record = await app.state.engine.find_one(Record, Record.id == punishment.record)
+    record = await app.state.engine.get_by_id(Record, punishment.record)
     if not record:
         raise RCSExcNotFound(entity_id=str(punishment.record))
 
@@ -62,12 +61,11 @@ async def create_punishment(punishment: PunishmentIn, handler: Handler = Depends
             punishment.details.pop("timedelta", None)
     new_punishment = Punishment(
         **punishment.dict(exclude={'update_at', 'record', 'handler'}),
-        handler=handler, record=record, user=record.user
+        handler=handler.id, record=record.id, user=record.user
     )
     record.is_processed = True
     new_punishment, record = await app.state.engine.save_all([new_punishment, record])
     return YvoJSONResponse(new_punishment.dict(exclude={"handler": {"encrypted_password", "token"}}))
-    # return YvoJSONResponse(new_punishment.dict(exclude={"handler": {"encrypted_password", "token"}}))
 
 
 @router.get("/punishment/")
@@ -92,9 +90,9 @@ async def get_punishments(
     if rule_name:
         # TODO filter records by rule_name
         # noinspection PyUnresolvedReferences
-        rules = await app.state.engine.gets(Rule, Rule.name.match(rule_name))
+        rules = await app.state.engine.find(Rule, Rule.name.match(rule_name))
         # noinspection PyUnresolvedReferences
-        records = await app.state.engine.gets(Record, Record.event.in_(rules))  # FIXME
+        records = await app.state.engine.find(Record, Record.event.in_(rules))
         # noinspection PyUnresolvedReferences
         queries.append(Punishment.record.in_([r.id for r in records]))
         # !!! filter across references is not supported
@@ -108,7 +106,7 @@ async def get_punishments(
 
     # count to calculate total_page
     total_count = await app.state.engine.count(Punishment, *queries)
-    punishments = await app.state.engine.gets(
+    punishments = await app.state.engine.find(
         Punishment, *queries, sort=sort, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(punishments))
     return YvoJSONResponse(
@@ -124,16 +122,16 @@ async def get_punishments(
 
 
 @router.get("/punishment/{punishment_id}", response_model=Punishment)
-async def get_result(punishment_id: ObjectId):
-    punishment = await app.state.engine.find_one(Punishment, Punishment.id == punishment_id)
+async def get_punishment(punishment_id: ObjectId):
+    punishment = await app.state.engine.get_by_id(Punishment, punishment_id)
     if not punishment:
         raise RCSExcNotFound(entity_id=str(punishment_id))
-    return YvoJSONResponse(punishment.dict())
+    return YvoJSONResponse(await punishment.refer_dict())
 
 
 @router.delete("/punishment/{punishment_id}", status_code=204)
 async def delete_punishment(punishment_id: ObjectId):
-    punishment = await app.state.engine.find_one(Punishment, Punishment.id == punishment_id)
+    punishment = await app.state.engine.get_by_id(Punishment, punishment_id)
     if not punishment:
         raise RCSExcNotFound(entity_id=str(punishment_id))
     await app.state.engine.delete(punishment)

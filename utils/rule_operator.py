@@ -332,7 +332,7 @@ class RuleParser(object):
         fetch_strategy: FetchStrategy = FetchStrategy(fetch_strategy)
 
         if coll_name == 'Event':
-            event = await app.state.engine.find_one(Event, Event.id == ObjectId(coll_id))
+            event = await app.state.engine.get_by_id(Event, ObjectId(coll_id))
             if not event:
                 raise Exception(f'{coll_name}.{coll_id} not found')
             # event = await Event.get_by_id(_id=coll_id)

@@ -4,14 +4,14 @@ from typing import Union
 # import tornado.ioloop
 import httpx
 import uvloop
-from aiocache import Cache, caches
+from aiocache import Cache, caches, cached
 from aiocache.plugins import HitMissRatioPlugin
 from motor.core import AgnosticCollection, AgnosticDatabase
 from motor.motor_asyncio import AsyncIOMotorClient
 from redis import Redis
 
 from config import MONGO_URI, REDIS_HOST, REDIS_PORT, REDIS_DB, REDIS_PASS, MONGO_DB, \
-    MONGO_COLLECTION_EVENT, MONGO_COLLECTION_RECORD, MONGO_COLLECTION_RULE, CACHE_NAMESPACE, CONSUL_CONN
+    MONGO_COLLECTION_EVENT, MONGO_COLLECTION_RECORD, MONGO_COLLECTION_RULE, CACHE_NAMESPACE, CONSUL_CONN, SCHEMA_TTL
 from config.parser import parse_consul_config, key_builder_only_kwargs
 from utils.logger import Logger
 from utils.u_consul import Consul
@@ -93,6 +93,14 @@ caches.set_config({
         serializer={'class': "utils.encoder.JsonSerializer"},
     ),
 })
+
+
+def key_builder(_, *__, **kwargs):
+    # DPC: Document Primary key Cache
+    return f"DPC:{kwargs['model'].__name__}:{kwargs['primary_key']}"
+
+
+cached_instance = cached(ttl=SCHEMA_TTL, alias='default', noself=True, key_builder=key_builder)
 
 # print(redis_cache_only_kwargs)
 # aio redis, wait aioredis 2.0

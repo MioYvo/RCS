@@ -45,7 +45,7 @@ try:
 except ImportError:
     curses = None  # type: ignore
 
-from typing import Dict, Any, cast, Optional
+from typing import Dict, Any, cast, Optional, overload
 
 # Logger objects for internal tornado use
 access_log = logging.getLogger("tornado.access")

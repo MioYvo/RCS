@@ -39,7 +39,7 @@ class EventsOut(BaseModel):
 async def create_or_update_event(event: Event):
     if event.dict(exclude_unset=True).get('id'):
         # Update
-        exists_event = await app.state.engine.find_one(Event, Event.id == event.id)
+        exists_event = await app.state.engine.get_by_id(Event, event.id)
         if exists_event:
             new_update_ = Event(**event.dict(exclude={'update_at'})).dict(exclude={'create_at', 'id'})
             for name, value in new_update_.items():

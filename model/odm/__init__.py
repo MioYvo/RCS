@@ -8,17 +8,20 @@ from functools import reduce
 from typing import List, Optional, Union, Set, Dict
 
 from bson import Decimal128
-from loguru import logger
 from odmantic.bson import BSON_TYPES_ENCODERS
 from pydantic import validator, root_validator
 from pymongo import IndexModel
 from odmantic import Model, ObjectId, Field, EmbeddedModel
+from pymongo.results import DeleteResult
 
 from utils.exceptions import RCSExcErrArg
 from utils.event_schema import EventSchema
 from utils.gtz import Dt
 from utils.fastapi_app import app
-    
+from utils.logger import Logger
+
+logger = Logger(name='odm')
+
 
 class RuleExecuteType(str, Enum):
     manual = 'manual'
@@ -122,7 +125,7 @@ class Event(Model):
 
     async def fetch_strategy_latest_record(self, metric: str):
         # noinspection PyUnresolvedReferences
-        records = await app.state.engine.gets(Record, Record.event == self.id,
+        records = await app.state.engine.find(Record, Record.event == self.id,
                                               sort=Record.create_at.desc(), limit=1)
         # record = await Record.get_latest_by_event_id(event_id=self.id)
         if records:
@@ -167,6 +170,9 @@ class PunishInRecord(EmbeddedModel):
     results_done: int = Field(default=0, title="已完成检查的规则数量")
     action: Action = Field(default=Action.NOTHING, title="惩罚动作")
 
+    def log_status(self):
+        return f"{self.hit_punish_level}/{self.total_punish_level} - {self.action.name} - done:{self.results_done}"
+
 
 # noinspection PyAbstractClass
 class Record(Model):
@@ -174,7 +180,7 @@ class Record(Model):
     event_data: dict = Field(..., title="事件数据")
     user: User = Field(..., title="用户信息")
     results: List[ResultInRecord] = Field(default_factory=list)
-    punish: PunishInRecord = Field(default_factory=dict, title="惩罚")
+    punish: PunishInRecord = Field(default_factory=PunishInRecord, title="惩罚")
     is_processed: bool = Field(default=False, title="是否已处理")
     event_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
@@ -187,7 +193,7 @@ class Record(Model):
         return [IndexModel('name', unique=True, name='idx_name_1')]
 
     async def event_(self) -> Optional[Event]:
-        return await app.state.engine.find_one(Event, Event.id == self.event)
+        return await app.state.engine.get_by_id(Event, self.event)
 
     async def reformat_event_data(self):
         rst, i = (await self.event_()).validate_schema(self.event_data)
@@ -200,8 +206,8 @@ class Record(Model):
         rules = (await self.event_()).rules
         # noinspection PyUnresolvedReferences
         scene_rules = reduce(lambda a, b: a + b,
-                             [scene.rules for scene in await app.state.engine.gets(
-                                 Scene, Scene.events.in_([self.event.id]))])
+                             [scene.rules for scene in await app.state.engine.find(
+                                 Scene, Scene.events.in_([self.event]))])
         return set(rules) | set(scene_rules)
 
     def rules_punish_level(self) -> Dict[str, int]:
@@ -217,7 +223,7 @@ class Record(Model):
         return dict(done=done_punish_level, total=total_punish_level,
                     final_punish_action_sugguest=suggest_final_punishment(done_punish_level))
 
-    def rules_check(self) -> Dict[ResultInRecordStatus, int]:
+    def rules_check(self) -> Dict[str, int]:
         # total_rules = len(self.results)
         # dispatched_rules = len([i for i in self.results if i.result_id])
         _d = dict(zip(ResultInRecordStatus, [0] * len(ResultInRecordStatus)))
@@ -229,8 +235,10 @@ class Record(Model):
     @classmethod
     async def clean(cls, record_id: Union[ObjectId, str]):
         record_id = ObjectId(record_id)
-        rst = await app.state.engine.delete_many(Result, Result.record == record_id)
-        logger.info(rst)
+        rst: DeleteResult = await app.state.engine.delete_many(Result, Result.record == record_id)
+        logger.info("delete Result", deleted_count=rst.deleted_count)
+        rst: DeleteResult = await app.state.engine.delete_many(Punishment, Punishment.record == record_id)
+        logger.info("delete Punishment", deleted_count=rst.deleted_count)
 
     def a_dict(self, *args, **kwargs):
         d = self.dict(*args, **kwargs)
@@ -285,11 +293,11 @@ class Punishment(Model):
 
     async def refer_dict(self, record_kwargs=None, *args, **kwargs) -> dict:
         d = self.dict(*args, **kwargs)
-        _record: Record = await app.state.engine.find_one(Record, Record.id == self.record)
+        _record: Record = await app.state.engine.get_by_id(Record, self.record)
         if _record:
             d['record'] = await _record.refer_dict(**(record_kwargs or {}))
 
-        _handler: Handler = await app.state.engine.find_one(Handler, Handler.id == self.handler)
+        _handler: Handler = await app.state.engine.get_by_id(Handler, self.handler)
         if _handler:
             d['handler'] = _handler.dict(exclude={'token', 'encrypted_password'})
         return d
@@ -330,7 +338,7 @@ class Scene(Model):
         try:
             EventSchema.parse(v)
         except Exception as e:
-            logger.exception(e)
+            logger.exceptions(e)
             raise RCSExcErrArg(content="SceneSchema parse failed")
         return v
 
@@ -344,7 +352,7 @@ class Scene(Model):
 
     async def fetch_strategy_latest_record(self, metric: str):
         # noinspection PyUnresolvedReferences
-        records = await app.state.engine.gets(Record, Record.event == self.id,
+        records = await app.state.engine.find(Record, Record.event == self.id,
                                               sort=Record.create_at.desc(), limit=1)
         # record = await Record.get_latest_by_event_id(event_id=self.id)
         if records:
@@ -536,7 +544,18 @@ class Result(Model):
         json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
 
     async def rule_(self) -> Rule:
-        return await app.state.engine.find_one(Rule, Rule.id == self.rule)
+        return await app.state.engine.get_by_id(Rule, self.rule)
 
     async def record_(self) -> Record:
-        return await app.state.engine.find_one(Record, Record.id == self.record)
+        return await app.state.engine.get_by_id(Record, self.record)
+
+    async def refer_dict(self, record_kwargs=None, rule_kwargs=None, *args, **kwargs):
+        d: dict = self.dict(*args, **kwargs)
+        _record = await self.record_()
+        if _record:
+            d['record'] = _record.a_dict(**(record_kwargs or {}))
+
+        _rule = await self.rule_()
+        if _rule:
+            d['rule'] = _rule.dict(**(rule_kwargs or {}))
+        return d

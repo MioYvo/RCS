@@ -55,8 +55,8 @@ class RuleExecutorConsumer(AmqpConsumer):
         if not data:
             return await self.ack(message)
         else:
-            record: Record = await app.state.engine.find_one(Record, Record.id == data['record'])
-            rule: Rule = await app.state.engine.find_one(Rule, Rule.id == data['rule'])
+            record: Record = await app.state.engine.get_by_id(Record, data['record'])
+            rule: Rule = await app.state.engine.get_by_id(Rule, data['rule'])
             rule_schema: list = data['rule_schema']
 
             if not (rule and record):
@@ -67,7 +67,7 @@ class RuleExecutorConsumer(AmqpConsumer):
             if RuleParser.evaluate_rule(rule_schema):
                 # rule matched
                 self.logger.info('✓RuleMatched✓', rule_id=rule.id, rule_name=rule.name)
-                result = Result(rule=rule, record=record, processed=False)
+                result = Result(rule=rule.id, record=record.id, processed=False)
                 await app.state.engine.save(result)
             else:
                 # rule not matched
@@ -100,7 +100,7 @@ class RuleExecutorConsumer(AmqpConsumer):
         if result:
             inc["punish.hit_punish_level"] = rule.punish_level
 
-        record: dict = await app.state.engine.find_one_and_update(
+        record = await app.state.engine.find_one_and_update(
             Record, {"_id": record.id, "results.rule_id": rule.id},
             update={
                 "$set": {
@@ -111,16 +111,21 @@ class RuleExecutorConsumer(AmqpConsumer):
                 "$inc": inc
             }
         )
-        self.logger.info(record['_id'], record['punish'], [i['status'] for i in record['results']])
-        # record = await app.state.engine.refresh(record)
-        if record['punish']['results_done'] == len(record['results']):
-            action = suggest_final_punishment(record['punish']['hit_punish_level'])
-            record = await app.state.engine.find_one_and_update(Record, Record.id == record['_id'], {"$set": {"punish.action": action}})
-            self.logger.info(f"suggest:punish", record['punish'])
-        # return app.state.engine.find_one(Record, Record.id == record.id)
+        if record:
+            self.logger.info(record.id, record.punish.log_status(), total=len(record.results))
+            # record = await app.state.engine.refresh(record)
+            if record.punish.results_done == len(record.results):
+                action = suggest_final_punishment(record.punish.hit_punish_level)
+                if action:
+                    record = await app.state.engine.find_one_and_update(Record, Record.id == record.id,
+                                                                        {"$set": {"punish.action": action}})
+                self.logger.info(f"suggest:punish", record.punish.log_status(), total=len(record.results))
+        else:
+            self.logger.info(f"{Record} not fund")
+            # return app.state.engine.find_one(Record, Record.id == record.id)
 
-        # self.logger.info(f"update_results", modified_count=rst.modified_count, rule=rule.id,
-        #                  result=True if result else False)
+            # self.logger.info(f"update_results", modified_count=rst.modified_count, rule=rule.id,
+            #                  result=True if result else False)
 
     async def auto_punish(self, record: Record) -> None:
         """

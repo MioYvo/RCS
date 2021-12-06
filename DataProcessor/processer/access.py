@@ -23,9 +23,9 @@ class AccessConsumer(AmqpConsumer):
 
     async def validate_message(self, message) -> Optional[Record]:
         try:
-            record: Record = Record.parse_doc(message.body)
-            event = await record.event_(app)
-            record.event_data = event.validate_schema(record.event_data)
+            record: Record = Record.parse_raw(message.body)
+            event = await record.event_()
+            event.validate_schema(record.event_data)
         except SchemaError as e:
             self.logger.exceptions(e)
             return None
@@ -82,7 +82,7 @@ class AccessConsumer(AmqpConsumer):
         rules: Set[ObjectId] = await record.rules()
         # if len(rules) != len(rules):
         #     await self.update_rules(rules, event=record.event)
-        _rules = await app.state.engine.gets(
+        _rules = await app.state.engine.find(
             Rule,
             Rule.id.in_(list(rules)),
             Rule.status == Status.ON,

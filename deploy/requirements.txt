@@ -8,7 +8,7 @@ asgiref==3.4.1; python_version >= "3.6"
 async-timeout==4.0.1; python_version >= "3.6"
 backports.zoneinfo==0.2.1; python_version < "3.9" and python_version >= "3.6" and (python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.6.0" and python_version >= "3.6")
 certifi==2021.10.8; python_version >= "3.6" and python_full_version < "3.0.0" or python_full_version >= "3.6.0" and python_version >= "3.6"
-charset-normalizer==2.0.8; python_full_version >= "3.6.0" and python_version >= "3.6"
+charset-normalizer==2.0.9; python_full_version >= "3.6.0" and python_version >= "3.6"
 click==8.0.3; python_version >= "3.6"
 colorama==0.4.4; python_version >= "3.6" and python_full_version < "3.0.0" and sys_platform == "win32" and platform_system == "Windows" or sys_platform == "win32" and python_version >= "3.6" and python_full_version >= "3.5.0" and platform_system == "Windows"
 contextlib2==21.6.0; python_version >= "3.6"
@@ -38,6 +38,7 @@ redis==4.0.2; python_version >= "3.6"
 requests==2.26.0; python_version >= "2.7" and python_full_version < "3.0.0" or python_full_version >= "3.6.0"
 rfc3986==1.5.0; python_version >= "3.6"
 schema==0.7.5
+seoservice2020-aiocache==1.0.0
 six==1.16.0; python_version >= "2.7" and python_full_version < "3.0.0" or python_full_version >= "3.3.0"
 sniffio==1.2.0; python_version >= "3.6" and python_full_version >= "3.6.2"
 snowland-smx==0.3.1

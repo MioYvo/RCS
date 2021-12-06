@@ -33,7 +33,7 @@ async def create_or_update_rule(rule: Rule):
         if not coll:
             raise RCSExcErrArg(content=f'Collection {k} not found')
         for coll_id in v:
-            doc_obj = await app.state.engine.find_one(coll, coll.id == coll_id)
+            doc_obj = await app.state.engine.get_by_id(coll, coll_id)
             if not doc_obj:
                 raise RCSExcNotFound(entity_id=str(coll_id))
             else:
@@ -77,7 +77,7 @@ async def get_rules(
         queries.append(Rule.name.match(name))
     # count to calculate total_page
     total_count = await app.state.engine.count(Rule, *queries)
-    rules = await app.state.engine.gets(
+    rules = await app.state.engine.find(
         Rule, *queries, sort=sort, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(rules))
     return YvoJSONResponse(
@@ -87,7 +87,7 @@ async def get_rules(
 
 @router.get("/rule/{rule_id}", response_model=Rule)
 async def get_rule(rule_id: ObjectId):
-    rule = await app.state.engine.find_one(Rule, Rule.id == rule_id)
+    rule = await app.state.engine.get_by_id(Rule, rule_id)
     if not rule:
         raise RCSExcNotFound(entity_id=str(rule_id))
     return rule
@@ -95,7 +95,7 @@ async def get_rule(rule_id: ObjectId):
 
 @router.delete("/rule/{rule_id}")
 async def delete_rule(rule_id: ObjectId):
-    rule = await app.state.engine.find_one(Rule, Rule.id == rule_id)
+    rule = await app.state.engine.get_by_id(Rule, rule_id)
     if not rule:
         raise RCSExcNotFound(entity_id=str(rule_id))
 
@@ -110,7 +110,7 @@ async def delete_rule(rule_id: ObjectId):
 
 @router.put("/rule/{rule_id}/status", response_model=Rule)
 async def update_rule_status(rule_id: ObjectId, status: Status):
-    rule = await app.state.engine.find_one(Rule, Rule.id == rule_id)
+    rule = await app.state.engine.get_by_id(Rule, rule_id)
     if not rule:
         raise RCSExcNotFound(entity_id=str(rule_id))
 

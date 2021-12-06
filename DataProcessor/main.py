@@ -18,7 +18,6 @@ logging.getLogger("uvicorn.access").handlers = [InterceptHandler()]
 logger.add(Path(LOG_FILE_PATH) / LOG_FILENAME, retention=LOG_FILE_RETENTION, rotation=LOG_FILE_ROTATION)
 
 
-
 @app.on_event("startup")
 async def startup_event():
     app.state.consumer = AccessConsumer(amqp_connection=app.state.amqp_connection)

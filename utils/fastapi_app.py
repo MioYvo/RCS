@@ -16,11 +16,12 @@ from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pysmx.SM3 import hash_msg
 
+from config.clients import cached_instance
 from utils.exceptions import RCSException
 from utils.yvo_engine import YvoEngine
 from config import PROJECT_NAME, MONGO_URI, MONGO_DB, PIKA_URL, RCSExchangeName, AccessExchangeType, REDIS_DB, \
     REDIS_PASS, REDIS_CONN_MAX, REDIS_HOST, REDIS_PORT, DOCS_URL, REDOC_URL, OPENAPI_URL, ENABLE_DOC, \
-    CREATE_INDEX
+    CREATE_INDEX, CREATE_ADMIN
 from utils.error_code import ERR_DB_OPERATE_FAILED
 
 if not ENABLE_DOC:
@@ -140,16 +141,25 @@ async def startup_admin_user():
     # await redis.delete(key=r_key)
 
 
+async def clear_cache():
+    logger.info('cache: clearing ...')
+    await cached_instance.cache.clear()
+    logger.info('cache: cleared ...')
+
+
 @app.on_event("startup")
 async def startup_event():
     # RabbitMQ
     await startup_rabbit()
     # Redis
     await startup_redis()
+    # cache
+    await clear_cache()
     # MongoDB
     await startup_mongo()
     # User admin
-    await startup_admin_user()
+    if CREATE_ADMIN:
+        await startup_admin_user()
 
 
 @app.on_event("shutdown")
@@ -163,6 +173,9 @@ async def shutdown_event():
     logger.info('rabbitMQ: disconnecting ...')
     await app.state.amqp_connection.close()
     logger.info('rabbitMQ: disconnected')
+
+    # cache
+    await clear_cache()
 
     # redis
     logger.info('redis: disconnecting ...')

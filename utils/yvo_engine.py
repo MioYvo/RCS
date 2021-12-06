@@ -7,7 +7,6 @@ from odmantic.model import ObjectId as OdObjectId
 from loguru import logger
 from typing import Optional, Union, Type, Dict, Any, List, Sequence
 
-from aiocache import cached
 # noinspection PyProtectedMember
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCursor
 from odmantic import Model, AIOEngine
@@ -17,15 +16,7 @@ from pydantic.utils import lenient_issubclass
 from pymongo import ReturnDocument
 from pymongo.results import UpdateResult
 
-from config import SCHEMA_TTL
-
-
-def key_builder(_, *__, **kwargs):
-    # DPC: Document Primary key Cache
-    return f"DPC:{kwargs['model'].__name__}:{kwargs['primary_key']}"
-
-
-cached_instance = cached(ttl=SCHEMA_TTL, alias='default', noself=True, key_builder=key_builder)
+from config.clients import cached_instance
 
 
 class YvoEngine(AIOEngine):
@@ -39,7 +30,8 @@ class YvoEngine(AIOEngine):
         return f"{instance.__collection__}:{getattr(instance, instance.__primary_field__)}"
 
     async def refresh(self, instance: ModelType):
-        await self.find_one(type(instance), type(instance).id == instance.id)
+        await self.delete_cache(instance.__class__, getattr(instance, instance.__primary_field__))
+        await self.get_by_id(type(instance), instance.id)
 
     def _find(self,
               model: Type[ModelType],
@@ -80,7 +72,7 @@ class YvoEngine(AIOEngine):
             raise ValueError("skip has to be a positive integer")
         query = AIOEngine._build_query(*queries)
         collection = self.get_collection(model)
-        pipeline: List[Dict] = [{"$match": query}, {"$project": {model.__primary_field__: 1}}]
+        pipeline: List[Dict] = [{"$match": query}]
         if sort_expression is not None:
             pipeline.append({"$sort": sort_expression})
         if skip > 0:
@@ -88,6 +80,9 @@ class YvoEngine(AIOEngine):
         if limit is not None and limit > 0:
             pipeline.append({"$limit": limit})
         pipeline.extend(AIOEngine._cascade_find_pipeline(model))
+        # only return _id, must at end of pipeline,
+        # otherwise stage args may be no effective
+        pipeline.append({"$project": {model.__primary_field__: 1}})
         return collection.aggregate(pipeline)
 
     @staticmethod
@@ -96,10 +91,6 @@ class YvoEngine(AIOEngine):
 
     async def find(self, model: Type[ModelType], *args, **kwargs) -> List[ModelType]:
         motor_cursor = self._find(model, *args, **kwargs)
-        # rst = []
-        # async for doc in motor_cursor:
-        #     rst.append(await self.get_by_id(model, self.get_doc_primary_key(doc, model)))
-        # return rst
         return [await self.get_by_id(model, self.get_doc_primary_key(doc, model)) async for doc in motor_cursor]
 
     async def get_by_id(self,
@@ -217,7 +208,7 @@ class YvoEngine(AIOEngine):
         # logger.debug(f"update_one::{query}::{update}")
         rst = await collection.find_one_and_update(filter=query, update=update, return_document=return_document)
         if rst:
-            primary_key = rst[model.__primary_field__]
+            primary_key = self.get_doc_primary_key(rst, model)
             return await self.get_by_id(model, primary_key=primary_key)
 
     async def delete_many(self, model: Type[ModelType], *queries):
