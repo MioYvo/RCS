@@ -2,8 +2,10 @@ import datetime
 from copy import deepcopy
 from typing import Optional, Set
 
+import loguru
 from aio_pika import IncomingMessage
 from odmantic import ObjectId
+from pymongo.errors import DuplicateKeyError
 from pymongo.results import UpdateResult
 from schema import SchemaError
 
@@ -40,15 +42,21 @@ class AccessConsumer(AmqpConsumer):
         if not record:
             return await self.ack(message)
 
-        record = await app.state.engine.save(record)
-
-        # rst: InsertOneResult = await record_collection.insert_one(data)
-        self.logger.info("InsertSuccess", collection=Record, doc=record.id)
-        # doc = await record_collection.find_one(rst.inserted_id)
-        # self.logger.info(record)
-        await self.ack(message)
-
-        await self.dispatch_to_rule_executor(record)
+        try:
+            record = await app.state.engine.save(record)
+        except DuplicateKeyError as e:
+            self.logger.info("InsertFailedDuplicateKey", collection=Record.__name__, e=e.details)
+            await self.ack(message)
+        except Exception as e:
+            self.logger.info("InsertFailedUnknown", collection=Record.__name__, e=e)
+            await self.ack(message)
+        else:
+            # rst: InsertOneResult = await record_collection.insert_one(data)
+            self.logger.info("InsertSuccess", collection=Record, doc=record.id)
+            # doc = await record_collection.find_one(rst.inserted_id)
+            # self.logger.info(record)
+            await self.ack(message)
+            await self.dispatch_to_rule_executor(record)
 
     async def dispatch_to_rule_executor(self, record: Record):
         """
@@ -102,6 +110,8 @@ class AccessConsumer(AmqpConsumer):
             _rule_schema = await RuleParser.render_rule(deepcopy(_rule.rule), record)
             if not isinstance(_rule_schema, list):
                 _rule_schema = [_rule_schema]
+
+            loguru.logger.info(f"{_rule_schema=}")
 
             data = {
                 "record": _record_id,

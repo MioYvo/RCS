@@ -5,9 +5,8 @@ from copy import deepcopy
 from datetime import timedelta
 from functools import partial
 
-from bson.decimal128 import Decimal128
 from pytz import utc
-from schema import Schema, Use, And
+from schema import Schema, Use, And, Optional as SchemaOptional
 
 from utils.gtz import Dt, local_timezone
 
@@ -96,8 +95,12 @@ class EventSchema:
             _desc = v.pop('desc', None)
             _config = v.pop('config', None)
             _unit = v.pop('unit', None)
+            _optional = v.pop('optional', False)
             fn = getattr(cls, f'type_{_type}')
-            _schema[k] = fn(**v)
+            if _optional:
+                _schema[SchemaOptional(k)] = fn(**v)
+            else:
+                _schema[k] = fn(**v)
         return Schema(_schema, ignore_extra_keys=ignore_extra_keys)
 
     @classmethod

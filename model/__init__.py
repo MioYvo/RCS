@@ -59,7 +59,7 @@
 #         raise NotImplementedError
 #
 #     async def refresh_cache(self) -> None:
-#         self.logger.info('delete_cache', key=self.cache_key)
+#         self.logger.info('_delete_cache', key=self.cache_key)
 #         await cache.delete(key=self.cache_key)
 #
 #     async def rebuild_cache(self) -> None:

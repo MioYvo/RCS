@@ -164,14 +164,14 @@ async def get_record_statistics_withdraw(record_id: ObjectId = Query(..., descri
         raise RCSExcNotFound(entity_id=str(record_id))
 
     # 充提币统计
-    withdraw_event: Event = await app.state.engine.find_one(Event, Event.name == PredefinedEventName.withdraw)
-    if not withdraw_event:
+    withdraw_events: List[Event] = await app.state.engine.find(Event, Event.name.in_(PredefinedEventName.withdraw_list()))
+    if not withdraw_events:
         raise RCSUnexpectedErr(content=f"event_id not found by event_name::"
-                                       f"{PredefinedEventName.withdraw}:{withdraw_event}")
+                                       f"{PredefinedEventName.withdraw_list()}:{withdraw_events}")
 
     return YvoJSONResponse(dict(
-        total=await total_coins_amount(engine=app.state.engine, record=record, event=withdraw_event),
-        address=await withdraw_address(engine=app.state.engine, record=record, withdraw_event=withdraw_event)
+        total=await total_coins_amount(engine=app.state.engine, record=record, events=withdraw_events),
+        address=await withdraw_address(engine=app.state.engine, record=record, withdraw_events=withdraw_events)
     ))
 
 
@@ -182,13 +182,13 @@ async def get_record_statistics_recharge(record_id: ObjectId = Query(..., descri
         raise RCSExcNotFound(entity_id=str(record_id))
 
     # 充提币统计
-    recharge_event: Event = await app.state.engine.find_one(Event, Event.name == PredefinedEventName.recharge)
-    if not recharge_event:
+    recharge_events: Event = await app.state.engine.find(Event, Event.name.in_(PredefinedEventName.recharge_list()))
+    if not recharge_events:
         raise RCSUnexpectedErr(content=f"event_id not found by event_name::"
-                                       f"{PredefinedEventName.recharge}:{recharge_event}")
+                                       f"{PredefinedEventName.recharge_list()}:{recharge_events}")
 
     return YvoJSONResponse(dict(
-        total=await total_coins_amount(engine=app.state.engine, record=record, event=recharge_event)
+        total=await total_coins_amount(engine=app.state.engine, record=record, events=recharge_events)
     ))
 
 

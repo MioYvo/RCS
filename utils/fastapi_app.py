@@ -100,11 +100,11 @@ async def startup_mongo():
     logger.info(f'mongo:server_info version:{mongo_si["version"]} ok:{mongo_si["ok"]}')
     logger.info('mongo: connected')
     if CREATE_INDEX:
-        from model.odm import Handler, Event, Rule, Scene
+        from model.odm import Handler, Event, Rule, Scene, Record, Result, Config, Punishment
         logger.info('mongo indexes: creating ... (if data exists)')
         indexes = {
             _model: _model.index_()
-            for _model in [Handler, Event, Rule, Scene]
+            for _model in [Handler, Event, Rule, Scene, Record, Result, Config, Punishment]
         }
 
         for _model, indexes in indexes.items():

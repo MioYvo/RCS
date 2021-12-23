@@ -2,8 +2,10 @@
 # __email__: "liurusi.101@gmail.com"
 # created: 5/18/21 6:41 PM
 import datetime
+import json
 from decimal import Decimal
 from typing import Union, List
+from urllib.parse import urljoin
 
 from pydantic import BaseModel, Field as PDField
 from fastapi import APIRouter, Query, Depends
@@ -11,12 +13,18 @@ from odmantic import ObjectId
 from odmantic.bson import BSON_TYPES_ENCODERS
 from odmantic.field import FieldProxy
 from odmantic.query import SortExpression
+from loguru import logger as logging
 
 from Access.api.deps import Page, YvoJSONResponse, get_current_username
+from config import callback_service_config
+from config.clients import consuls, httpx_client
 from model.odm import Punishment, Record, Rule, Action, Handler
+from utils.encoder import MyEncoder
 from utils.fastapi_app import app
 from utils.exceptions import RCSExcErrArg, RCSExcNotFound
+from utils.gtz import Dt
 from utils.http_code import HTTP_201_CREATED
+from utils.u_consul import Consul
 
 router = APIRouter()
 
@@ -53,7 +61,7 @@ async def create_punishment(punishment: PunishmentIn, handler: Handler = Depends
         _timedelta_arg = punishment.details.get('timedelta')
         if _timedelta_arg:
             _timedelta = datetime.timedelta(seconds=_timedelta_arg)
-            _utc_now = datetime.datetime.utcnow()
+            _utc_now = Dt.utc_now()
             punishment.details['punishment_period'] = {
                 "start": _utc_now, "end": _utc_now + _timedelta
             }
@@ -65,6 +73,32 @@ async def create_punishment(punishment: PunishmentIn, handler: Handler = Depends
     )
     record.is_processed = True
     new_punishment, record = await app.state.engine.save_all([new_punishment, record])
+
+    # notice
+    proj: str = record.user.project.upper()
+    proj_config = callback_service_config.get(proj) or callback_service_config.get(proj.lower())
+    if proj_config:
+        consul_client: Consul = consuls.get(proj) or consuls.get(proj.lower())
+        if consul_client:
+            _api_address = await consul_client.get_service_one(proj_config['service_name'])
+            if _api_address:
+                data = {
+                    "punishment": json.loads(new_punishment.json(include={"action", "details"}, cls=MyEncoder)),
+                    "user": new_punishment.user.dict()
+                }
+                rst = await httpx_client.post(
+                    url=urljoin(base=f"http://{_api_address}", url=proj_config['punish_notice_uri']),
+                    json=data
+                )
+                logging.info(f"{rst.request}: {data}||response: {rst}: {rst.content.decode('utf8')}")
+                new_punishment.details['is_noticed'] = rst.is_success
+                new_punishment.response = rst.content.decode('utf8')
+                await app.state.engine.save(new_punishment)
+        else:
+            return YvoJSONResponse({"failed": f"no consul_client found: {proj} | {consuls}"}, status_code=500)
+    else:
+        return YvoJSONResponse({"failed": f"no proj_config found: {proj} | {proj_config}"}, status_code=500)
+
     return YvoJSONResponse(new_punishment.dict(exclude={"handler": {"encrypted_password", "token"}}))
 
 
@@ -116,7 +150,7 @@ async def get_punishments(
                     exclude={'rcs_schema'}
                 ),
                 exclude={'results'}
-        )) for i in punishments],
+            )) for i in punishments],
              meta=p.meta_pagination())
     )
 

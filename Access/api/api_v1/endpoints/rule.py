@@ -4,13 +4,12 @@
 from collections import defaultdict
 
 from fastapi import APIRouter, Query
-from motor.core import AgnosticCollection
 from odmantic import ObjectId
 from odmantic.field import FieldProxy
 from odmantic.query import SortExpression
 
 from Access.api.deps import Page, YvoJSONResponse
-from model.odm import Rule, Event, Result, Scene, Status
+from model.odm import Rule, Scene, Status
 from model.mapping import COLL_MAPPING
 from utils.fastapi_app import app
 from utils.rule_operator import RuleParser

@@ -3,9 +3,8 @@
 # created: 5/12/21 7:41 PM
 from aioredis import Redis
 from bson import ObjectId
-from odmantic.model import ObjectId as OdObjectId
 from loguru import logger
-from typing import Optional, Union, Type, Dict, Any, List, Sequence
+from typing import Optional, Union, Type, Dict, Any, List, Sequence, Iterable
 
 # noinspection PyProtectedMember
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCursor
@@ -30,7 +29,7 @@ class YvoEngine(AIOEngine):
         return f"{instance.__collection__}:{getattr(instance, instance.__primary_field__)}"
 
     async def refresh(self, instance: ModelType):
-        await self.delete_cache(instance.__class__, getattr(instance, instance.__primary_field__))
+        await self.delete_cache(instance)
         await self.get_by_id(type(instance), instance.id)
 
     def _find(self,
@@ -87,7 +86,13 @@ class YvoEngine(AIOEngine):
 
     @staticmethod
     def get_doc_primary_key(doc, model: Type[ModelType]):
-        return doc['_id'] if model.__primary_field__ == 'id' else doc[model.__primary_field__]
+        if model.__primary_field__ == 'id':
+            return doc['_id'] if isinstance(doc, dict) else getattr(doc, 'id')
+        else:
+            if doc.get(model.__primary_field__) is not None:
+                return doc[model.__primary_field__] if isinstance(doc, dict) else getattr(doc, model.__primary_field__)
+            else:
+                return doc['_id'] if isinstance(doc, dict) else getattr(doc, 'id')
 
     async def find(self, model: Type[ModelType], *args, **kwargs) -> List[ModelType]:
         motor_cursor = self._find(model, *args, **kwargs)
@@ -117,16 +122,20 @@ class YvoEngine(AIOEngine):
         :return: None时不缓存
         """
         logger.info(f'real:get_info:{model.__name__}:{primary_key}')
-        query = AIOEngine._build_query(getattr(model, model.__primary_field__) == ObjectId(primary_key))
+        _primary_key = ObjectId(primary_key) if model.__primary_field__ == 'id' else primary_key
+        query = AIOEngine._build_query(getattr(model, model.__primary_field__) == _primary_key)
         collection = self.get_collection(model)
         pipeline: List[Dict] = [{"$match": query}, {"$limit": 1}]
         motor_cursor = collection.aggregate(pipeline)
         results = await AIOCursor(model, motor_cursor)
         if len(results) == 0:
-            return None     # 不缓存
+            return None  # 不缓存
         return results[0].dict()
 
-    async def delete_cache(self, model: Type[ModelType], primary_key: Union[str, ObjectId, OdObjectId]):
+    async def delete_cache(self, instance: ModelType, model: Type[ModelType] = None):
+        model = model or instance.__class__
+        primary_key = self.get_doc_primary_key(instance, model or instance.__class__)
+
         key = cached_instance.get_cache_key(
             self._get_by_id, args=[self],
             kwargs=dict(model=model, primary_key=primary_key)
@@ -142,18 +151,18 @@ class YvoEngine(AIOEngine):
         :param instance:
         :return:
         """
-        await self.delete_cache(instance.__class__, getattr(instance, instance.__primary_field__))
+        await self.delete_cache(instance)
         instance = await super(YvoEngine, self).save(instance=instance)
         return instance
 
     async def save_all(self, instances: Sequence[ModelType]) -> List[ModelType]:
         for ai in instances:
-            await self.delete_cache(ai.__class__, getattr(ai, ai.__primary_field__))
+            await self.delete_cache(ai)
         added_instances = await super(YvoEngine, self).save_all(instances=instances)
         return added_instances
 
     async def delete(self, instance: ModelType) -> None:
-        await self.delete_cache(instance.__class__, getattr(instance, instance.__primary_field__))
+        await self.delete_cache(instance)
         await super(YvoEngine, self).delete(instance=instance)
 
     async def yvo_pipeline(self, model: Type[ModelType], *queries, pipeline: List[Dict] = None) -> List[Dict]:
@@ -170,20 +179,20 @@ class YvoEngine(AIOEngine):
         motor_cursor = collection.aggregate(_pipeline)
         return [doc async for doc in motor_cursor]
 
-    async def update_many(self, model: Type[ModelType], *queries, update: List[Dict] = None) -> UpdateResult:
+    async def update_many(self, model: Type[ModelType], *queries, update: Union[List[Dict], Dict] = None) -> UpdateResult:
         motor_cursor = self._find(model, *queries)
         async for doc in motor_cursor:
-            await self.delete_cache(model, self.get_doc_primary_key(doc, model))
+            await self.delete_cache(doc, model)
 
         collection = self.get_collection(model)
         query = AIOEngine._build_query(*queries)
         logger.debug(f"update_many::{query}::{update}")
         return await collection.update_many(filter=query, update=update)
 
-    async def update_one(self, model: Type[ModelType], query, update: List[Dict] = None) -> UpdateResult:
+    async def update_one(self, model: Type[ModelType], query, update: Union[List[Dict], Dict] = None) -> UpdateResult:
         instance = await self.find_one(model, query)
         if instance:
-            await self.delete_cache(model, getattr(instance, instance.__primary_field__))
+            await self.delete_cache(instance, model)
 
         collection = self.get_collection(model)
         # IMPORTANT For AWS DocumentDB updateOne cannot use queries builder
@@ -199,7 +208,7 @@ class YvoEngine(AIOEngine):
                                   return_document=ReturnDocument.AFTER) -> Optional[ModelType]:
         instance = await self.find_one(model, query)
         if instance:
-            await self.delete_cache(model, getattr(instance, instance.__primary_field__))
+            await self.delete_cache(instance, model)
 
         collection = self.get_collection(model)
         # IMPORTANT For AWS DocumentDB updateOne cannot use queries builder
@@ -214,7 +223,7 @@ class YvoEngine(AIOEngine):
     async def delete_many(self, model: Type[ModelType], *queries):
         motor_cursor = self._find(model, *queries)
         async for doc in motor_cursor:
-            await self.delete_cache(model, self.get_doc_primary_key(doc, model))
+            await self.delete_cache(doc)
 
         collection = self.get_collection(model)
         query = AIOEngine._build_query(*queries)

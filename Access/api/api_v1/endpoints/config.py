@@ -75,7 +75,7 @@ async def get_configs(
 
 @router.get("/config/{config_name}", response_model=Config)
 async def get_config(config_name: str):
-    config = await app.state.engine.get_by_id(Config, Config.name == config_name)
+    config = await app.state.engine.get_by_id(Config, config_name)
     if not config:
         raise RCSExcNotFound(entity_id=config_name)
     return config
@@ -83,7 +83,7 @@ async def get_config(config_name: str):
 
 @router.delete("/config/{config_name}", response_model=Config)
 async def delete_config(config_name: str):
-    config = await app.state.engine.get_by_id(Config, Config.name == config_name)
+    config = await app.state.engine.get_by_id(Config, config_name)
     if not config:
         raise RCSExcNotFound(entity_id=config_name)
     await app.state.engine.delete(config)

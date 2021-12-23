@@ -294,6 +294,7 @@ class RuleParser(object):
         else:
             raise Exception(f"Failed validate scene schema: {valid_data}")
         scene_script: Callable = scripts_manager.scene_scripts[scene.name]
+        logging.info(f"{scene_script=}: {kwargs=}")
         rendered_rule: bool = await scene_script(record, kwargs)
         return rendered_rule
 

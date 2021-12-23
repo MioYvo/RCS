@@ -9,6 +9,7 @@ from urllib.parse import urljoin
 from fastapi import APIRouter
 from pydantic import BaseModel, Field as PDField
 
+from config import callback_service_config
 from utils.exceptions import RCSExcErrArg, RCSExcNotFound
 from utils.logger import Logger
 from config.clients import consuls, httpx_client
@@ -39,23 +40,17 @@ class UserInfo(BaseModel):
     emailProvider: str = PDField(title='邮箱服务商')
 
 
-php_service_consul_name = {
-    "VDEX": "vdex_dapp_phpservice",
-    "PAYDEX": "paydex_dapp_phpservice"
-}
-
-
 @router.get("/userinfo/{project_name}/{user_id}", response_model=UserInfo, description="")
 async def user_info(project_name: str, user_id: str):
-    php_consul_name = php_service_consul_name.get(project_name.upper())
-    if not php_consul_name:
+    proj_config = callback_service_config.get(project_name.upper())
+    if not proj_config:
         raise RCSExcErrArg(content=f"{project_name=:} not found")
 
     consul_client: Consul = consuls.get(project_name.upper())
     if not consul_client:
         raise RCSExcErrArg(content=f"{project_name=:} client not registered")
 
-    php_address = await consul_client.get_service_one(php_consul_name)
+    php_address = await consul_client.get_service_one(proj_config['service_name'])
     if not php_address:
         raise RCSExcErrArg(content=f"{project_name=:} php service not found")
 

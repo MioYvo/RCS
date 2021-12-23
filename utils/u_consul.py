@@ -4,11 +4,14 @@ import logging
 from random import choice
 from typing import Optional
 
+from aiocache import cached
 from consul import base
 
 __all__ = ['Consul']
 
 from httpx import AsyncClient
+
+from config import CONSUL_SERVICE_CACHE_TTL
 
 
 class HTTPClient(base.HTTPClient):
@@ -78,7 +81,7 @@ class Consul(base.Consul):
             "interval": f"{interval_seconds}s",
         }
         tags = ['rcs', 'http']
-        await self.agent.service.register(name, service_id, address, port, tags=tags, check=check, token=token)
+        return await self.agent.service.register(name, service_id, address, port, tags=tags, check=check, token=token)
 
     async def get_value(self, key: str, default=True) -> Optional[str]:
         key = f"RCS_{key}" if default else key
@@ -93,6 +96,7 @@ class Consul(base.Consul):
             logging.error(e)
         return None
 
+    @cached(ttl=CONSUL_SERVICE_CACHE_TTL, alias='default', noself=False)
     async def get_service_one(self, key: str) -> Optional[str]:
         ret = await self.catalog.service(key)
         if ret and ret[1]:

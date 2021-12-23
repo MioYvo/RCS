@@ -47,13 +47,16 @@ app.include_router(health_router, prefix="/api", tags=["health"])
 
 
 async def init_consul():
+    logger.info('consul:init...')
     for proj, _consul in consuls.items():
         logger.info(f'consul:registering:{proj}:{_consul.http.host}')
-        await _consul.register(name=CONSUL_SERVICE_NAME, service_id=CONSUL_SERVICE_ID,
-                               address=TRAEFIK_HOST, port=TRAEFIK_HTTP_PORT)
+        rst = await _consul.register(name=CONSUL_SERVICE_NAME, service_id=CONSUL_SERVICE_ID,
+                                     address=TRAEFIK_HOST, port=TRAEFIK_HTTP_PORT)
+        logger.info(f'consul:register:done:{proj}:{_consul.http.host}:{rst}')
 
 
 async def exit_consul():
+    logger.info('consul:exit...')
     for proj, _consul in consuls.items():
         logger.info(f'consul:deregister:{proj}:{_consul.http.host}')
         await _consul.agent.service.deregister(service_id=CONSUL_SERVICE_ID, token=_consul.token)

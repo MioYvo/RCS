@@ -11,6 +11,7 @@ from utils.gtz import local_timezone
 # Project
 PROJECT_NAME = getenv("PROJECT_NAME", "DataProcessor")
 SCHEMA_TTL = int(getenv('SCHEMA_TTL', 600))
+CONSUL_SERVICE_CACHE_TTL = int(getenv('SCHEMA_TTL', 60))
 RCSExchangeName = getenv('RCSExchangeName', 'RCS')
 AccessExchangeType = ExchangeType(getenv('AccessExchangeType', 'direct'))
 DATA_PROCESSOR_ROUTING_KEY = getenv('DATA_PROCESSOR_ROUTING_KEY', 'DataProcessor')
@@ -162,3 +163,36 @@ CONSUL_CONN = getenv('CONSUL_CONN', '')
 # # self consul config
 CONSUL_SERVICE_NAME = getenv('CONSUL_SERVICE_NAME', 'rcs')
 CONSUL_SERVICE_ID = getenv('CONSUL_SERVICE_ID', 'rcs_1')
+
+# Rule Engine
+RULE_ENGINE_USER_DATA_FORMAT = getenv('SPECIAL_USER_DATA_FORMAT', '<<USER_DATA>>')
+
+callback_service_config = {
+    "VDEX": {"service_name": "vdex_dapp_phpservice"},
+    "PAYDEX": {"service_name": "paydex_dapp_phpservice"},
+    "lland_dapp_phpservice_dev": {
+        # 开发环境
+        # php api服务: http://10.75.0.29:80
+        # php consul: http://10.75.0.29:8500
+        # project/consul service_name: lland_dapp_phpservice_dev
+        "service_name": "lland_dapp_phpservice_dev",
+        "punish_notice_uri": "/lland/box/v1/risk/notice"
+    },
+    "lland_dapp_phpservice": {
+        # 测试/正式环境
+        # php api服务: http://10.75.0.61:80
+        # php consul: http://10.75.0.61:8500
+        # project/consul service_name: lland_dapp_phpservice
+        "service_name": "lland_dapp_phpservice",
+        "punish_notice_uri": "/lland/box/v1/risk/notice"
+    },
+    "lland_dapp_phpservice_pre": {
+        # 灰度环境
+        # php api服务: 待定
+        # php consul: 待定
+        # project/consul service_name: lland_dapp_phpservice_pre
+        "service_name": "lland_dapp_phpservice_pre",
+        "punish_notice_uri": "/lland/box/v1/risk/notice"
+    },
+}
+

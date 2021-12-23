@@ -19,8 +19,11 @@ from utils.event_schema import EventSchema
 from utils.gtz import Dt
 from utils.fastapi_app import app
 from utils.logger import Logger
+from utils.yvo_engine import YvoEngine
 
 logger = Logger(name='odm')
+# noinspection PyTypeHints
+app.state.engine: YvoEngine
 
 
 class RuleExecuteType(str, Enum):
@@ -51,7 +54,19 @@ class Status(str, Enum):
 
 class PredefinedEventName(str, Enum):
     withdraw = "withdraw"
+    withdraw_token = "withdraw_token"
+    withdraw_nft = "withdraw_nft"
     recharge = "recharge"
+    recharge_token = "recharge_token"
+    recharge_nft = "recharge_nft"
+
+    @classmethod
+    def withdraw_list(cls):
+        return [cls.withdraw, cls.withdraw_token, cls.withdraw_nft]
+
+    @classmethod
+    def recharge_list(cls):
+        return [cls.recharge, cls.recharge_token, cls.recharge_nft]
 
 
 class Action(str, Enum):
@@ -60,7 +75,7 @@ class Action(str, Enum):
     REFUSE_OPERATION = "REFUSE_OPERATION"
     BLOCK_USER = 'BLOCK_USER'
     BAN_USER_LOGIN = "BAN_USER_LOGIN"
-    BAN_USER_WITHDRAW = "BAN_USER_LOGIN"
+    BAN_USER_WITHDRAW = "BAN_USER_WITHDRAW"
 
 
 class HandlerRole(str, Enum):
@@ -153,6 +168,9 @@ class Event(Model):
 class User(EmbeddedModel):
     user_id: str = Field(..., title="用户唯一标识")
     project: str = Field(..., title="项目名，大写")
+    chain_name: Optional[str] = Field(title="链名")
+    game_id: Optional[str] = Field(title="游戏id")
+    platform_id: Optional[str] = Field(title="游戏平台id")
 
 
 class ResultInRecord(EmbeddedModel):
@@ -190,7 +208,9 @@ class Record(Model):
 
     @classmethod
     def index_(cls):
-        return [IndexModel('name', unique=True, name='idx_name_1')]
+        return [
+            IndexModel('event_data.order_no', unique=True, name='idx_event_data_order_no_1')
+        ]
 
     async def event_(self) -> Optional[Event]:
         return await app.state.engine.get_by_id(Event, self.event)
@@ -205,9 +225,9 @@ class Record(Model):
     async def rules(self) -> Set[ObjectId]:
         rules = (await self.event_()).rules
         # noinspection PyUnresolvedReferences
-        scene_rules = reduce(lambda a, b: a + b,
-                             [scene.rules for scene in await app.state.engine.find(
-                                 Scene, Scene.events.in_([self.event]))])
+        _scene_rules = [scene.rules for scene in await app.state.engine.find(
+            Scene, Scene.events.in_([self.event]))]
+        scene_rules = reduce(lambda a, b: a + b, _scene_rules) if _scene_rules else set([])
         return set(rules) | set(scene_rules)
 
     def rules_punish_level(self) -> Dict[str, int]:
@@ -285,6 +305,7 @@ class Punishment(Model):
     details: dict = Field(default=dict(), title="详细")
     memo: str = Field('', max_length=20, title="备注")
     handler: ObjectId
+    response: str = Field(default='', title="返回值")
     update_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     create_at: Optional[datetime.datetime] = Field(default_factory=datetime.datetime.utcnow)
     
@@ -302,6 +323,11 @@ class Punishment(Model):
             d['handler'] = _handler.dict(exclude={'token', 'encrypted_password'})
         return d
 
+    @classmethod
+    def index_(cls):
+        return []
+
+
 # class Category(str, Enum):
 #     registering = "registering"
 #     sign_in = "sign_in"
@@ -313,6 +339,7 @@ class Punishment(Model):
 #     currency_transaction = "currency_transaction"   # 币币交易
 #     transfer = "transfer"
 #     transaction_password = "transaction_password"
+
 
 # noinspection PyAbstractClass
 class Scene(Model):
@@ -384,13 +411,17 @@ class Config(Model):
     class Config:
         json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
 
+    @classmethod
+    def index_(cls):
+        return []
+
 
 # noinspection PyAbstractClass
 class Rule(Model):
     rule: list = Field(default_factory=list, title="规则引擎规则")
     origin_rule: dict = Field(..., title="前端规则JSON")
     handler_name: str = Field(default='', title='用户name')
-    name: str = Field(max_length=25)
+    name: str = Field(max_length=50)
     serial_no: int = Field(default_factory=serial_no_generator, title="规则序列号")
     user_prompt: str = Field(max_length=50, default='', title="用户提示")
     project: List[str] = Field(..., title="项目(列表)", description="从config接口获取完整配置 <Config>")
@@ -421,9 +452,9 @@ class Rule(Model):
         RuleParser.validate(v)
         return v
 
-    @validator('project')
-    def check_project(cls, v: List[str]):
-        return [vv.upper() for vv in v]
+    @validator('name')
+    def check_name(cls, v: str):
+        return v.strip()
 
     @validator('serial_no')
     def check_serial_no(cls, v):
@@ -528,8 +559,19 @@ class Rule(Model):
         logger.info(rst)
         rst = await app.state.engine.delete_many(Result, Result.rule == rule_id)
         logger.info(rst)
-        # Do delete from engine
-        # await app.state.engine.delete(rule)
+
+    @classmethod
+    async def clean_cache(cls, rule_id: Union[ObjectId, str]):
+        rule_id = ObjectId(rule_id)
+        scenes = await app.state.engine.find(
+            Scene, {"rules": {"$elemMatch": {"$eq": rule_id}}},
+        )
+        events = await app.state.engine.find(
+            Event, {"rules": {"$elemMatch": {"$eq": rule_id}}},
+        )
+
+        for instance in scenes + events:
+            await app.state.engine.delete_cache(instance)
 
 
 # noinspection PyAbstractClass
@@ -542,6 +584,10 @@ class Result(Model):
 
     class Config:
         json_encoders = {Decimal: str, **BSON_TYPES_ENCODERS}
+
+    @classmethod
+    def index_(cls):
+        return []
 
     async def rule_(self) -> Rule:
         return await app.state.engine.get_by_id(Rule, self.rule)
