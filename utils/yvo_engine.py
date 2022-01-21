@@ -89,7 +89,7 @@ class YvoEngine(AIOEngine):
         if model.__primary_field__ == 'id':
             return doc['_id'] if isinstance(doc, dict) else getattr(doc, 'id')
         else:
-            if doc.get(model.__primary_field__) is not None:
+            if getattr(doc, "__primary_field__", None) is not None:
                 return doc[model.__primary_field__] if isinstance(doc, dict) else getattr(doc, model.__primary_field__)
             else:
                 return doc['_id'] if isinstance(doc, dict) else getattr(doc, 'id')

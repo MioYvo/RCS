@@ -209,7 +209,7 @@ class Record(Model):
     @classmethod
     def index_(cls):
         return [
-            IndexModel('event_data.order_no', unique=True, name='idx_event_data_order_no_1')
+            IndexModel('event_data.order_no', unique=True, name='idx_event_data_order_no_1', sparse=True)
         ]
 
     async def event_(self) -> Optional[Event]:
@@ -556,6 +556,7 @@ class Rule(Model):
             Event, {"rules": {"$elemMatch": {"$eq": rule_id}}},
             update={"$pull": {"rules": rule_id}}
         )
+        # clean record resultInRecord
         logger.info(rst)
         rst = await app.state.engine.delete_many(Result, Result.rule == rule_id)
         logger.info(rst)
