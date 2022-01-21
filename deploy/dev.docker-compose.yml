@@ -114,7 +114,7 @@ services:
       ENABLE_DOC: 1
       WEB_CONCURRENCY: 1  # process num for gunicorn.conf
       CREATE_INDEX: 1
-      CONSUL_CONN: "VDEX#10.17.5.131:8500 lland_dapp_phpservice_dev#10.75.0.29:8500 lland_dapp_phpservice#10.75.0.61:8500"
+      CONSUL_CONN: "VDEX#10.17.5.131:8500 lland_dapp_phpservice_dev#10.75.0.29:8500 lland_dapp_phpservice_test#10.75.0.61:8500"
     labels:
       - traefik.enable=true
       - traefik.http.routers.rcs-backend-http.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/redoc`) || PathPrefix(`/openapi.json`)

@@ -178,12 +178,20 @@ callback_service_config = {
         "service_name": "lland_dapp_phpservice_dev",
         "punish_notice_uri": "/lland/box/v1/risk/notice"
     },
-    "lland_dapp_phpservice": {
-        # 测试/正式环境
+    "lland_dapp_phpservice_test": {
+        # 测试
         # php api服务: http://10.75.0.61:80
         # php consul: http://10.75.0.61:8500
         # project/consul service_name: lland_dapp_phpservice
-        "service_name": "lland_dapp_phpservice",
+        "service_name": "lland_dapp_phpservice_test",
+        "punish_notice_uri": "/lland/box/v1/risk/notice"
+    },
+    "lland_dapp_phpservice_prod": {
+        # 生产
+        # php api服务: 待定
+        # php consul: 待定
+        # project/consul service_name: lland_dapp_phpservice
+        "service_name": "lland_dapp_phpservice_prod",
         "punish_notice_uri": "/lland/box/v1/risk/notice"
     },
     "lland_dapp_phpservice_pre": {

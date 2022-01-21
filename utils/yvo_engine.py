@@ -4,7 +4,7 @@
 from aioredis import Redis
 from bson import ObjectId
 from loguru import logger
-from typing import Optional, Union, Type, Dict, Any, List, Sequence, Iterable
+from typing import Optional, Union, Type, Dict, Any, List, Sequence
 
 # noinspection PyProtectedMember
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCursor
