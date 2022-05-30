@@ -3,9 +3,11 @@ RCS is a risk control system for complete process, contains data-flow and custom
 
 ## Features
 * Microservices.
+* Asyncio everywhere.
 * Full process for risk control. Defined rule and runer, receive data from api, clean and distribute data to rule engine, match rule and save punishment record.
 * Customizable rules by simple and convenient http API.
 * SceneScript, rule runner, simple use and wrote by Python for developers.
+* Caches by modified retrieve method which get data from db.
 
 ## Techs
 * [RabbitMQ](https://www.rabbitmq.com/) for message queue.
