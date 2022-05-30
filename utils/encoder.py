@@ -7,8 +7,11 @@ from enum import Enum
 from json import JSONEncoder
 from typing import Union, Optional
 from uuid import UUID
+import json
 
+from aiocache.serializers import BaseSerializer
 from bson import ObjectId, Decimal128
+from odmantic.model import ObjectId as odObjectID
 
 unicode_type = str
 _TO_UNICODE_TYPES = (unicode_type, type(None))
@@ -47,9 +50,43 @@ class MyEncoder(JSONEncoder):
         #     return str(o)
         if isinstance(o, UUID):
             return str(o)
-        if isinstance(o, ObjectId):
+        if isinstance(o, (ObjectId, odObjectID)):
             return str(o)
         if isinstance(o, (Decimal128, Decimal)):
             return str(o)
 
         return JSONEncoder.default(self, o)
+
+
+class JsonSerializer(BaseSerializer):
+    """
+    Transform data to json string with json.dumps and json.loads to retrieve it back. Check
+    https://docs.python.org/3/library/json.html#py-to-json-table for how types are converted.
+
+    ujson will be used by default if available. Be careful with differences between built in
+    json module and ujson:
+        - ujson dumps supports bytes while json doesn't
+        - ujson and json outputs may differ sometimes
+    """
+
+    def dumps(self, value):
+        """
+        Serialize the received value using ``json.dumps``.
+
+        :param value: dict
+        :returns: str
+        """
+        return json.dumps(value, cls=MyEncoder)
+
+    def loads(self, value):
+        """
+        Deserialize value using ``json.loads``.
+
+        :param value: str
+        :returns: output of ``json.loads``.
+        """
+        if value is None:
+            return None
+        return json.loads(value)
+
+

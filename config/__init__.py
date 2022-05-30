@@ -11,21 +11,30 @@ from utils.gtz import local_timezone
 # Project
 PROJECT_NAME = getenv("PROJECT_NAME", "DataProcessor")
 SCHEMA_TTL = int(getenv('SCHEMA_TTL', 600))
+CONSUL_SERVICE_CACHE_TTL = int(getenv('SCHEMA_TTL', 60))
 RCSExchangeName = getenv('RCSExchangeName', 'RCS')
 AccessExchangeType = ExchangeType(getenv('AccessExchangeType', 'direct'))
 DATA_PROCESSOR_ROUTING_KEY = getenv('DATA_PROCESSOR_ROUTING_KEY', 'DataProcessor')
 RULE_EXE_ROUTING_KEY = getenv('RULE_EXE_ROUTING_KEY', 'RuleEngineExe')
-RUN_PORT = int(getenv('RUN_PORT', '8081'))
+RUN_HOST = getenv("RUN_HOST", "traefik")
+RUN_PORT = int(getenv("RUN_PORT", 80))   # must be 80
 CACHE_NAMESPACE = getenv('CACHE_NAMESPACE', 'RCS')
 DOCS_URL = getenv('DOCS_URL', '/docs')
 OPENAPI_URL = getenv('OPENAPI_URL', '/openapi.json')
 REDOC_URL = getenv('REDOC_URL', '/redoc')
 ENABLE_DOC = bool(int(getenv('ENABLE_DOC', 0)))
 CREATE_INDEX = bool(int(getenv('CREATE_INDEX', 0)))
+CREATE_ADMIN = bool(int(getenv('CREATE_ADMIN', 1)))
+
+# Traefik
+TRAEFIK_HOST = getenv("TRAEFIK_HOST", "traefik")
+TRAEFIK_HTTP_PORT = int(getenv("TRAEFIK_HTTP_PORT", 801))
+# LOG
 LOG_FILE_PATH = getenv('LOG_FILE_PATH', '/app/log/')
 LOG_FILENAME = getenv('LOG_FILENAME', f"{PROJECT_NAME}.log")
 LOG_FILE_RETENTION = getenv('LOG_FILE_RETENTION', '7 days')
 LOG_FILE_ROTATION = getenv('LOG_FILE_ROTATION', '1 day')
+LOG_LEVEL = getenv('LOG_LEVEL', 'INFO')
 
 # DataProcessor
 PRE_FETCH_COUNT = int(getenv('PRE_FETCH_COUNT', 10))
@@ -49,7 +58,10 @@ if not MONGO_PASS:
         with open(MONGO_PASS_FILE) as f:
             MONGO_PASS = f.read().strip()
 MONGO_URI = URL.build(scheme='mongodb', host=MONGO_HOST, port=MONGO_PORT, user=MONGO_USER, password=MONGO_PASS,
-                      query=dict(MAXPoolSize=MONGO_MAXPoolSize))
+                      query=dict(
+                          MAXPoolSize=MONGO_MAXPoolSize,
+                          retryWrites='false'     # FOR amazon documentDB
+                      ))
 
 
 # MariaDB
@@ -96,6 +108,13 @@ REDIS_DB = int(getenv('REDIS_DB', 1))
 REDIS_PASS = getenv('REDIS_PASS', None)
 REDIS_CONN_MAX = int(getenv('REDIS_CONN_MAX', 5))
 assert REDIS_HOST
+if not REDIS_PASS:
+    REDIS_PASS_FILE = getenv('REDIS_PASS_FILE')
+    if REDIS_PASS_FILE:
+        with open(REDIS_PASS_FILE) as f:
+            REDIS_PASS = f.read().strip()
+            if not REDIS_PASS:
+                REDIS_PASS = None
 
 
 # pika
@@ -138,3 +157,50 @@ user_agent = getenv('http_clients_default_user_agent',
 #     user_agent=user_agent
 # ))
 # a_http_client = AsyncHTTPClient()
+
+# Consul    "Token@Host:Port Token2@Host2:Port2"
+CONSUL_CONN = getenv('CONSUL_CONN', '')
+# # self consul config
+CONSUL_SERVICE_NAME = getenv('CONSUL_SERVICE_NAME', 'rcs')
+CONSUL_SERVICE_ID = getenv('CONSUL_SERVICE_ID', 'rcs_1')
+
+# Rule Engine
+RULE_ENGINE_USER_DATA_FORMAT = getenv('SPECIAL_USER_DATA_FORMAT', '<<USER_DATA>>')
+
+callback_service_config = {
+    "VDEX": {"service_name": "vdex_dapp_phpservice"},
+    "PAYDEX": {"service_name": "paydex_dapp_phpservice"},
+    "lland_dapp_phpservice_dev": {
+        # 开发环境
+        # php api服务: http://10.75.0.29:80
+        # php consul: http://10.75.0.29:8500
+        # project/consul service_name: lland_dapp_phpservice_dev
+        "service_name": "lland_dapp_phpservice_dev",
+        "punish_notice_uri": "/lland/box/v1/risk/notice"
+    },
+    "lland_dapp_phpservice_test": {
+        # 测试
+        # php api服务: http://10.75.0.61:80
+        # php consul: http://10.75.0.61:8500
+        # project/consul service_name: lland_dapp_phpservice
+        "service_name": "lland_dapp_phpservice_test",
+        "punish_notice_uri": "/lland/box/v1/risk/notice"
+    },
+    "lland_dapp_phpservice_prod": {
+        # 生产
+        # php api服务: 待定
+        # php consul: 待定
+        # project/consul service_name: lland_dapp_phpservice
+        "service_name": "lland_dapp_phpservice_prod",
+        "punish_notice_uri": "/lland/box/v1/risk/notice"
+    },
+    "lland_dapp_phpservice_pre": {
+        # 灰度环境
+        # php api服务: 待定
+        # php consul: 待定
+        # project/consul service_name: lland_dapp_phpservice_pre
+        "service_name": "lland_dapp_phpservice_pre",
+        "punish_notice_uri": "/lland/box/v1/risk/notice"
+    },
+}
+

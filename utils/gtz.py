@@ -4,7 +4,7 @@ from datetime import datetime, time, timedelta, date
 from typing import Union, Optional
 
 from dateutil import parser
-from pytz import utc, BaseTzInfo, timezone
+from pytz import utc, BaseTzInfo, timezone, UTC
 # noinspection PyProtectedMember
 from pytz.tzinfo import DstTzInfo
 from tzlocal import get_localzone
@@ -39,27 +39,27 @@ class Dt:
         return dt
 
     @classmethod
-    def from_ts(cls, ts: Union[int, str, float]):
+    def from_ts(cls, ts: Union[int, str, float], tz=utc):
         if isinstance(ts, str):
             ts = float(ts)
 
         if int(math.log10(ts) + 1) == cls.precision_ms:
-            return cls.add_tz(datetime.fromtimestamp(ts / 1000), tz=utc)
+            return cls.add_tz(datetime.fromtimestamp(ts / 1000), tz=tz)
         else:
-            return cls.add_tz(datetime.fromtimestamp(ts), tz=utc)
+            return cls.add_tz(datetime.fromtimestamp(ts), tz=tz)
 
     @classmethod
-    def to_str(cls, dt: datetime, _format=UTC_DATETIME_FORMAT, iso_format=False):
-        if iso_format:
-            return dt.isoformat()
+    def to_str(cls, dt: datetime, utc_format=UTC_DATETIME_FORMAT) -> str:
+        if dt.tzinfo and dt.tzinfo is UTC:
+            return dt.strftime(utc_format)
         else:
-            return dt.strftime(_format)
+            return dt.isoformat()
 
     @classmethod
     def add_tz(cls, _dt, tz=Optional[DstTzInfo]):
         if not tz:
             tz = local_timezone
-        return tz.localize(_dt)
+        return _dt.replace(tzinfo=tz)
 
     @classmethod
     def convert_tz(cls, _dt, to_tz: DstTzInfo, from_tz=None):

@@ -39,7 +39,7 @@ class EventsOut(BaseModel):
 async def create_or_update_event(event: Event):
     if event.dict(exclude_unset=True).get('id'):
         # Update
-        exists_event = await app.state.engine.find_one(Event, Event.id == event.id)
+        exists_event = await app.state.engine.get_by_id(Event, event.id)
         if exists_event:
             new_update_ = Event(**event.dict(exclude={'update_at'})).dict(exclude={'create_at', 'id'})
             for name, value in new_update_.items():
@@ -59,7 +59,8 @@ async def get_events(
         page: int = Query(default=1, ge=1),
         per_page: int = Query(default=20, ge=1),
         sort: str = Query(default='update_at', description='must be attribute of Event model'),
-        desc: bool = True, name: str = ""):
+        desc: bool = True,
+        name: str = ""):
 
     _sort: FieldProxy = getattr(Event, sort, None)
     if not _sort:
@@ -72,12 +73,11 @@ async def get_events(
     queries = []
     if name:
         # noinspection PyUnresolvedReferences
-        queries.append(Event.name.match(name))
+        queries.append(Event.name.match(name) | Event.desc.match(name))
     # count to calculate total_page
     total_count = await app.state.engine.count(Event, *queries)
     logging.info(total_count)
-    events = await app.state.engine.gets(Event, *queries, sort=sort, skip=skip, limit=limit,
-                                         return_doc=False)
+    events = await app.state.engine.find(Event, *queries, sort=sort, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(events))
     # return YvoJSONResponse(
     #     dict(message='', error_code=0, content=events, meta=p.meta_pagination()),
@@ -87,17 +87,17 @@ async def get_events(
 
 @router.get("/event/{event_id}", response_model=Event)
 async def get_event(event_id: ObjectId):
-    event = await app.state.engine.find_one(Event, Event.id == event_id)
+    event = await app.state.engine.get_by_id(Event, event_id)
     if not event:
         raise RCSExcNotFound(entity_id=str(event_id))
     return event
 
 
-@router.delete("/event/{event_id}", response_model=Event)
+@router.delete("/event/{event_id}", status_code=204)
 async def delete_event(event_id: ObjectId):
-    event = await app.state.engine.find_one(Event, Event.id == event_id)
+    event = await app.state.engine.get_by_id(Event, event_id)
     if not event:
         raise RCSExcNotFound(entity_id=str(event_id))
     await app.state.engine.delete(event)
     await Event.clean(event_id)
-    return event
+    # return event

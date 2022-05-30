@@ -16,12 +16,12 @@ from fastapi.responses import JSONResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pysmx.SM3 import hash_msg
 
-from model.odm import Handler, HandlerRole
+from config.clients import cached_instance
 from utils.exceptions import RCSException
 from utils.yvo_engine import YvoEngine
 from config import PROJECT_NAME, MONGO_URI, MONGO_DB, PIKA_URL, RCSExchangeName, AccessExchangeType, REDIS_DB, \
     REDIS_PASS, REDIS_CONN_MAX, REDIS_HOST, REDIS_PORT, DOCS_URL, REDOC_URL, OPENAPI_URL, ENABLE_DOC, \
-    CREATE_INDEX
+    CREATE_INDEX, CREATE_ADMIN
 from utils.error_code import ERR_DB_OPERATE_FAILED
 
 if not ENABLE_DOC:
@@ -35,7 +35,7 @@ app = FastAPI(title=PROJECT_NAME, docs_url=DOCS_URL, redoc_url=REDOC_URL, openap
 async def unicorn_exception_handler(request: Request, exc: RCSException):
     return JSONResponse(
         status_code=exc.status_code,
-        content={"message": exc.message, "error_code": exc.error_code, "content": exc.content},
+        content={"message": str(exc.message), "error_code": str(exc.error_code), "content": str(exc.content)},
     )
 
 
@@ -44,7 +44,7 @@ async def unicorn_exception_handler(request: Request, exc: RCSException):
 async def unicorn_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
         status_code=500,
-        content={"content": str(exc), "arg": exc.args},
+        content={"content": str(exc), "arg": str(exc.args)},
     )
 
 
@@ -53,7 +53,7 @@ async def unicorn_exception_handler(request: Request, exc: Exception):
 async def unicorn_exception_handler(request: Request, exc: pymongo.errors.OperationFailure):
     return JSONResponse(
         status_code=400,
-        content={"message": "DBOperateFailed", "error_code": ERR_DB_OPERATE_FAILED, "content": exc.details},
+        content={"message": "DBOperateFailed", "error_code": ERR_DB_OPERATE_FAILED, "content": str(exc.details)},
     )
 
 
@@ -100,11 +100,11 @@ async def startup_mongo():
     logger.info(f'mongo:server_info version:{mongo_si["version"]} ok:{mongo_si["ok"]}')
     logger.info('mongo: connected')
     if CREATE_INDEX:
-        from model.odm import Handler, Event, Rule, Scene
+        from model.odm import Handler, Event, Rule, Scene, Record, Result, Config, Punishment
         logger.info('mongo indexes: creating ... (if data exists)')
         indexes = {
             _model: _model.index_()
-            for _model in [Handler, Event, Rule, Scene]
+            for _model in [Handler, Event, Rule, Scene, Record, Result, Config, Punishment]
         }
 
         for _model, indexes in indexes.items():
@@ -119,6 +119,7 @@ async def startup_mongo():
 
 
 async def startup_admin_user():
+    from model.odm import Handler, HandlerRole
     logger.info('user admin: creating ...')
     redis: Redis = app.state.a_redis
     r_key = "startup::admin_user"
@@ -140,16 +141,25 @@ async def startup_admin_user():
     # await redis.delete(key=r_key)
 
 
+async def clear_cache():
+    logger.info('cache: clearing ...')
+    await cached_instance.cache.clear()
+    logger.info('cache: cleared ...')
+
+
 @app.on_event("startup")
 async def startup_event():
     # RabbitMQ
     await startup_rabbit()
     # Redis
     await startup_redis()
+    # cache
+    await clear_cache()
     # MongoDB
     await startup_mongo()
     # User admin
-    await startup_admin_user()
+    if CREATE_ADMIN:
+        await startup_admin_user()
 
 
 @app.on_event("shutdown")
@@ -163,6 +173,9 @@ async def shutdown_event():
     logger.info('rabbitMQ: disconnecting ...')
     await app.state.amqp_connection.close()
     logger.info('rabbitMQ: disconnected')
+
+    # cache
+    await clear_cache()
 
     # redis
     logger.info('redis: disconnecting ...')

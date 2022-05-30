@@ -46,7 +46,7 @@ class ScenesCategoryOut(BaseModel):
 async def create_or_update_scene(scene: Scene):
     if scene.dict(exclude_unset=True).get('id'):
         # Update
-        exists_scene = await app.state.engine.find_one(Scene, Scene.id == scene.id)
+        exists_scene = await app.state.engine.get_by_id(Scene, scene.id)
         if exists_scene:
             new_update_ = Scene(**scene.dict(exclude={'update_at'})).dict(exclude={'create_at', 'id'})
             for name, value in new_update_.items():
@@ -86,8 +86,7 @@ async def get_scenes(
         queries.append(Scene.category.match(category))
     # count to calculate total_page
     total_count = await app.state.engine.count(Scene, *queries)
-    scenes = await app.state.engine.gets(Scene, *queries, sort=sort, skip=skip, limit=limit,
-                                         return_doc=False)
+    scenes = await app.state.engine.find(Scene, *queries, sort=sort, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(scenes))
     # return YvoJSONResponse(
     #     dict(message='', error_code=0, content=scenes, meta=p.meta_pagination()),
@@ -97,7 +96,7 @@ async def get_scenes(
 
 @router.get("/scene/{scene_id}", response_model=Scene)
 async def get_scene(scene_id: ObjectId):
-    scene = await app.state.engine.find_one(Scene, Scene.id == scene_id)
+    scene = await app.state.engine.get_by_id(Scene, scene_id)
     if not scene:
         raise RCSExcNotFound(entity_id=str(scene_id))
     return scene
@@ -113,7 +112,7 @@ async def get_scene(scene_name: str):
 
 @router.delete("/scene/{scene_id}", response_model=Scene)
 async def delete_scene(scene_id: ObjectId):
-    scene = await app.state.engine.find_one(Scene, Scene.id == scene_id)
+    scene = await app.state.engine.get_by_id(Scene, scene_id)
     if not scene:
         raise RCSExcNotFound(entity_id=str(scene_id))
     await app.state.engine.delete(scene)

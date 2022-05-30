@@ -5,18 +5,18 @@ from model.odm import Record, Event
 from utils.yvo_engine import YvoEngine
 
 
-async def total_coins_amount(engine: YvoEngine, record: Record, event: Event) -> List[Dict[str, Decimal]]:
+async def total_coins_amount(engine: YvoEngine, record: Record, events: List[Event]) -> List[Dict[str, Decimal]]:
     """
     充提币总额
     :param engine:
     :param record:
-    :param event:
+    :param events:
     :return:
     """
     _statistics = await engine.yvo_pipeline(
         Record,
         Record.user == record.user,
-        Record.event == event.id,
+        Record.event.in_([event.id for event in events]),
         Record.event_at <= record.event_at,
         pipeline=[
             {
@@ -30,7 +30,7 @@ async def total_coins_amount(engine: YvoEngine, record: Record, event: Event) ->
     return [{'coin': _r['_id'], 'total': _r['total']} for _r in _statistics]
 
 
-async def withdraw_address(engine: YvoEngine, record: Record, withdraw_event: Event):
+async def withdraw_address(engine: YvoEngine, record: Record, withdraw_events: List[Event]):
     """
     {
         "user_count": 123,      # 向本地址提币的总用户数
@@ -40,13 +40,13 @@ async def withdraw_address(engine: YvoEngine, record: Record, withdraw_event: Ev
     }
     :param engine:
     :param record:
-    :param withdraw_event:
+    :param withdraw_events:
     :return:
     """
     # 向本地址提币的总用户数
     _user_count = await engine.yvo_pipeline(
         Record,
-        Record.event == withdraw_event.id,
+        Record.event.in_([withdraw_event.id for withdraw_event in withdraw_events]),
         Record.event_at <= record.event_at,
         {"event_data.order_to": record.event_data['order_to']},
         pipeline=[
@@ -67,7 +67,7 @@ async def withdraw_address(engine: YvoEngine, record: Record, withdraw_event: Ev
     # 向本地址提币的总次数
     _address_count = await engine.yvo_pipeline(
         Record,
-        Record.event == withdraw_event.id,
+        Record.event.in_([withdraw_event.id for withdraw_event in withdraw_events]),
         Record.event_at <= record.event_at,
         {"event_data.order_to": record.event_data['order_to']},
         pipeline=[
@@ -85,7 +85,7 @@ async def withdraw_address(engine: YvoEngine, record: Record, withdraw_event: Ev
     # 本用户向本地址提币的次数
     _record_user_to_address_withdraw_count = await engine.yvo_pipeline(
         Record,
-        Record.event == withdraw_event.id,
+        Record.event.in_([withdraw_event.id for withdraw_event in withdraw_events]),
         Record.user == record.user,
         Record.event_at <= record.event_at,
         {"event_data.order_to": record.event_data['order_to']},
@@ -104,7 +104,7 @@ async def withdraw_address(engine: YvoEngine, record: Record, withdraw_event: Ev
     # 用户历史提币次数
     _record_user_withdraw_count = await engine.yvo_pipeline(
         Record,
-        Record.event == withdraw_event.id,
+        Record.event.in_([withdraw_event.id for withdraw_event in withdraw_events]),
         Record.user == record.user,
         Record.event_at <= record.event_at,
         pipeline=[

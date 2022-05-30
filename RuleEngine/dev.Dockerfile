@@ -1,8 +1,7 @@
-FROM 289631370416.dkr.ecr.us-east-2.amazonaws.com/rcs/rcs_pyservice/basics:10
-#FROM registry.cn-hangzhou.aliyuncs.com/mio101/rcs:dev-base-v0.0.2
+FROM registry.cn-hangzhou.aliyuncs.com/mio101/rcs:dev-base-v0.0.2
 
-COPY . /app/Access/
-WORKDIR /app/Access
+COPY . /app/RuleEngine/
+WORKDIR /app/RuleEngine
 
 EXPOSE 80
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "80", "--loop", "uvloop", "--no-access-log"]

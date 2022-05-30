@@ -156,7 +156,7 @@ class Functions(object):
         #     # TODO custom Exceptions
         #     raise Exception(f'Scene {scene_id} not found')
         #
-        print(scene_name)
+        # print(scene_name)
         print(fields)
 
 
@@ -287,13 +287,14 @@ class RuleParser(object):
             data = rl[2]
             kwargs[arg_name] = Operator(arg_name, func, data, func_name=func_name)
             origin_data[arg_name] = data
-        valid_rst, valid_data = scene.validate_schema(scene.scene_schema, origin_data)
+        valid_rst, valid_data = scene.validate_schema(origin_data)
         if valid_rst:
             for k, v in valid_data.items():
                 kwargs[k].data = v
         else:
             raise Exception(f"Failed validate scene schema: {valid_data}")
         scene_script: Callable = scripts_manager.scene_scripts[scene.name]
+        logging.info(f"{scene_script=}: {kwargs=}")
         rendered_rule: bool = await scene_script(record, kwargs)
         return rendered_rule
 
@@ -332,7 +333,7 @@ class RuleParser(object):
         fetch_strategy: FetchStrategy = FetchStrategy(fetch_strategy)
 
         if coll_name == 'Event':
-            event = await app.state.engine.find_one(Event, Event.id == ObjectId(coll_id))
+            event = await app.state.engine.get_by_id(Event, ObjectId(coll_id))
             if not event:
                 raise Exception(f'{coll_name}.{coll_id} not found')
             # event = await Event.get_by_id(_id=coll_id)

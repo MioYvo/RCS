@@ -10,15 +10,13 @@ from config import PROJECT_NAME, DATA_PROCESSOR_QUEUE_NAME, RCSExchangeName, PRE
     LOG_FILENAME, LOG_FILE_RETENTION, LOG_FILE_ROTATION
 from utils.fastapi_app import app
 from utils.logger import format_record, InterceptHandler
+from SceneScript import scripts_manager
 logging.getLogger().handlers = [InterceptHandler()]
 logger.configure(
     handlers=[{"sink": sys.stdout, "level": logging.INFO, "format": format_record}]
 )
 logging.getLogger("uvicorn.access").handlers = [InterceptHandler()]
 logger.add(Path(LOG_FILE_PATH) / LOG_FILENAME, retention=LOG_FILE_RETENTION, rotation=LOG_FILE_ROTATION)
-
-# logging.getLogger("uvicorn.error").handlers = [InterceptHandler()]
-# logging.getLogger("uvicorn").handlers = [InterceptHandler()]
 
 
 @app.on_event("startup")
@@ -33,6 +31,11 @@ async def startup_event():
         prefetch_count=PRE_FETCH_COUNT,
         auto_delete=True
     )
+
+
+@app.on_event("startup")
+async def register_scene():
+    logger.info(f"{scripts_manager.scene_scripts=}")
 
 
 @app.on_event("shutdown")

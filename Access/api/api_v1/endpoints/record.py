@@ -6,6 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Union, List, Optional
 
+from fastapi.params import Path
 from pydantic import BaseModel, Field as PDField
 from fastapi import APIRouter, Query
 from odmantic import ObjectId
@@ -52,12 +53,13 @@ async def create_or_update_record(record_in: RecordIn):
     if not event:
         raise RCSExcNotFound(entity_id=str(record_in.event_name))
     # validate event
-    validate_rst, validate_info = event.validate_schema(event.rcs_schema, record_in.event_data)
+    validate_rst, validate_info = event.validate_schema(record_in.event_data)
     if not validate_rst:
         raise RCSExcErrArg(content=validate_info)
 
     sending_data = record_in.dict()
-    sending_data['event'] = event.dict()
+    sending_data['event'] = event.id
+    # sending_data['event'] = event.dict()
     sending_data['event_data'] = validate_info
 
     tf, rst, sent_msg = await publisher(
@@ -92,13 +94,13 @@ async def get_records(
     queries = []
     if event_name:
         # noinspection PyUnresolvedReferences
-        events = await app.state.engine.gets(Event, Event.name.match(event_name))
+        events = await app.state.engine.find(Event, Event.name.match(event_name) | Event.desc.match(event_name))
         # noinspection PyUnresolvedReferences
         queries.append(Record.event.in_([e.id for e in events]))
         # !!! filter across references is not supported
         # queries.append(Record.event.name.match(name))
     if relation_record_id:
-        _record: Record = await app.state.engine.find_one(Record, Record.id == ObjectId(relation_record_id))
+        _record: Record = await app.state.engine.get_by_id(Record, relation_record_id)
         if not _record:
             raise RCSExcNotFound(entity_id=str(relation_record_id))
         queries += [Record.event_at < _record.event_at, Record.user == _record.user]
@@ -106,39 +108,46 @@ async def get_records(
         # queries.append(Record.user.user_id == _record.user.user_id)
         # queries.append(Record.user.project == _record.user.project)
     if not all_data_view:
-        queries.append({"results.1": {"$exists": True}})
+        queries.append({"results": {"$ne": [], "$elemMatch": {"result_id": {"$ne": None}}}})
     if is_processed is not None:
         queries.append(Record.is_processed == is_processed)
 
     logger.info(queries)
     # count to calculate total_page
     total_count = await app.state.engine.count(Record, *queries)
-    records = await app.state.engine.gets(
-        Record, *queries, sort=sort, skip=skip, limit=limit, return_doc=False)
+    records = await app.state.engine.find(
+        Record, *queries, sort=sort, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(records))
     return YvoJSONResponse(
-        dict(content=[i.a_dict(exclude={"event": {"rcs_schema", "rules"}}) for i in records], meta=p.meta_pagination()),
+        dict(content=[await i.refer_dict(event_kwargs=dict(exclude={"rcs_schema", "rules"})) for i in records],
+             meta=p.meta_pagination()),
     )
 
 
 @router.get("/record/{record_id}", response_model=Record)
 async def get_record(record_id: ObjectId):
-    record = await app.state.engine.find_one(Record, Record.id == record_id)
+    record = await app.state.engine.get_by_id(Record, record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
-    return YvoJSONResponse(record.a_dict())
+    return YvoJSONResponse(await record.refer_dict())
 
 
 @router.get("/record/{record_id}/results", description="记录相关规则执行的结果")
-async def get_record_results(record_id: ObjectId = Query(..., description="记录id")):
-    record = await app.state.engine.find_one(Record, Record.id == record_id)
+async def get_record_results(
+        record_id: ObjectId = Path(..., description="记录id"),
+        all_data_view: bool = Query(default=False, description="显示所有")
+
+):
+    record = await app.state.engine.get_by_id(Record, record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
 
     _results = deepcopy(record.results)
     __results = []
     for _rst in _results:
-        _rule: Optional[Rule] = await app.state.engine.find_one(Rule, Rule.id == _rst.rule_id)
+        if not all_data_view and not _rst.result_id:
+            continue
+        _rule: Optional[Rule] = await app.state.engine.get_by_id(Rule, _rst.rule_id)
         if not _rule:
             continue
         __rst = {}
@@ -150,42 +159,42 @@ async def get_record_results(record_id: ObjectId = Query(..., description="记�
 
 @router.get("/record/{record_id}/statistics/withdraw", description="提币统计数据")
 async def get_record_statistics_withdraw(record_id: ObjectId = Query(..., description="记录id")):
-    record = await app.state.engine.find_one(Record, Record.id == record_id)
+    record = await app.state.engine.get_by_id(Record, record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
 
     # 充提币统计
-    withdraw_event: Event = await app.state.engine.find_one(Event, Event.name == PredefinedEventName.withdraw)
-    if not withdraw_event:
+    withdraw_events: List[Event] = await app.state.engine.find(Event, Event.name.in_(PredefinedEventName.withdraw_list()))
+    if not withdraw_events:
         raise RCSUnexpectedErr(content=f"event_id not found by event_name::"
-                                       f"{PredefinedEventName.withdraw}:{withdraw_event}")
+                                       f"{PredefinedEventName.withdraw_list()}:{withdraw_events}")
 
     return YvoJSONResponse(dict(
-        total=await total_coins_amount(engine=app.state.engine, record=record, event=withdraw_event),
-        address=await withdraw_address(engine=app.state.engine, record=record, withdraw_event=withdraw_event)
+        total=await total_coins_amount(engine=app.state.engine, record=record, events=withdraw_events),
+        address=await withdraw_address(engine=app.state.engine, record=record, withdraw_events=withdraw_events)
     ))
 
 
 @router.get("/record/{record_id}/statistics/recharge", description="充值统计数据")
 async def get_record_statistics_recharge(record_id: ObjectId = Query(..., description="记录id")):
-    record = await app.state.engine.find_one(Record, Record.id == record_id)
+    record = await app.state.engine.get_by_id(Record, record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
 
     # 充提币统计
-    recharge_event: Event = await app.state.engine.find_one(Event, Event.name == PredefinedEventName.recharge)
-    if not recharge_event:
+    recharge_events: Event = await app.state.engine.find(Event, Event.name.in_(PredefinedEventName.recharge_list()))
+    if not recharge_events:
         raise RCSUnexpectedErr(content=f"event_id not found by event_name::"
-                                       f"{PredefinedEventName.recharge}:{recharge_event}")
+                                       f"{PredefinedEventName.recharge_list()}:{recharge_events}")
 
     return YvoJSONResponse(dict(
-        total=await total_coins_amount(engine=app.state.engine, record=record, event=recharge_event)
+        total=await total_coins_amount(engine=app.state.engine, record=record, events=recharge_events)
     ))
 
 
 @router.delete("/record/{record_id}")
 async def delete_record(record_id: ObjectId):
-    record = await app.state.engine.find_one(Record, Record.id == record_id)
+    record = await app.state.engine.get_by_id(Record, record_id)
     if not record:
         raise RCSExcNotFound(entity_id=str(record_id))
     await app.state.engine.delete(record)

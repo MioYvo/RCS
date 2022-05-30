@@ -65,7 +65,7 @@ async def get_configs(
         queries.append(Config.name.match(name))
     # count to calculate total_page
     total_count = await app.state.engine.count(Config, *queries)
-    configs = await app.state.engine.gets(Config, *queries, skip=skip, limit=limit, return_doc=False)
+    configs = await app.state.engine.find(Config, *queries, skip=skip, limit=limit)
     p = Page(total=total_count, page=page, per_page=per_page, count=len(configs))
     # return YvoJSONResponse(
     #     dict(message='', error_code=0, content=configs, meta=p.meta_pagination()),
@@ -75,7 +75,7 @@ async def get_configs(
 
 @router.get("/config/{config_name}", response_model=Config)
 async def get_config(config_name: str):
-    config = await app.state.engine.find_one(Config, Config.name == config_name)
+    config = await app.state.engine.get_by_id(Config, config_name)
     if not config:
         raise RCSExcNotFound(entity_id=config_name)
     return config
@@ -83,7 +83,7 @@ async def get_config(config_name: str):
 
 @router.delete("/config/{config_name}", response_model=Config)
 async def delete_config(config_name: str):
-    config = await app.state.engine.find_one(Config, Config.name == config_name)
+    config = await app.state.engine.get_by_id(Config, config_name)
     if not config:
         raise RCSExcNotFound(entity_id=config_name)
     await app.state.engine.delete(config)
